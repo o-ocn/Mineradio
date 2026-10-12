@@ -3,8 +3,12 @@
   "productName": "Mineradio",
   "version": "2.2.0",
   "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
-  "author": "Mineradio",
+  "author": "o-ocn",
   "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/o-ocn/Mineradio.git"
+  },
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
@@ -77,23 +81,18 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "XxHuberrr",
+        "owner": "o-ocn",
         "repo": "Mineradio"
       }
     ]
   },
   "mineradio": {
     "update": {
-      "provider": "github",
-      "owner": "XxHuberrr",
-      "repo": "Mineradio",
+      "disabled": true,
+      "provider": "none",
       "preview": false,
-      "preferMirrors": true,
-      "mirrors": [
-        "https://gh.llkk.cc/",
-        "https://ghfast.top/",
-        "https://gh-proxy.com/"
-      ]
+      "preferMirrors": false,
+      "mirrors": []
     }
   },
   "dependencies": {

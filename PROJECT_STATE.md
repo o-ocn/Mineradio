@@ -16,8 +16,8 @@
 
 ## 二、当前状态（做到哪里 / 运行事实）
 
-- **当前阶段**：活跃二次开发中 (Development Phase)
-- **当前版本与分支**：`v1.0.0-beta` / 分支 `main`
+- **当前阶段**：阶段完成 / 稳定运行 (Stage Completed / Production Stable)
+- **当前版本与分支**：`v1.0.0-beta` / 分支 `main` (Commit `2cdb3aa` 已全量同步至 GitHub)
 - **核心组件运行事实**：
   - 后端服务：轻量 Node.js 本地 Express 服务器，监听端口 `3000`（通过 `node server.js` 启动）；
   - 前端架构：纯原生 HTML5 / CSS3 / ES6+ JavaScript，无 Webpack/Vite 编译打包，修改即时生效；
@@ -66,14 +66,26 @@
   - **歌单封面支持自定义更换**：在内置歌单详情页新增「换封面」入口，同时支持点击歌单大封面直接触发；支持输入网络图片链接或选取本地图片并持久化；
   - **Last.fm 界面调性对齐与一键授权贯通**：模态框重构为暗黑香槟金毛玻璃拟态与微边框高光；接入官方 `auth.getToken` 与自动轮询换取 SessionKey 的免手动输入授权流，并在高级折叠面板中支持用户自主填写 API Key / Secret / Session Key 并附带一键申请链接。
 
+- [x] **界面终极净化与全沉浸中心对齐（V1.2 收尾专项）**：
+  - **右下角设置按钮彻底杜绝悬停窥视与打扰**：
+    - 在 `02-peek-panels-upload.js` 中彻底移除 `mousemove` 对视觉设置面板的悬停窥视展开（`setPeek(fp, ...)`），杜绝光标滑过右下角误触发滑出；
+    - 移除 `#fx-fab` 原生 `title` 属性，消除系统黄色/黑色文字提示遮挡；
+    - 永久隐藏 `#fx-fab-hide-btn` 辅助按钮；
+    - 移除 CSS 中全部针对 `#fx-fab:hover` 的位移、放大和边框变色，悬停时保持完全静态；
+    - 确立纯点击展开/收起模型，点击面板外部空白区域自动收回。
+  - **全沉浸模式控制条视觉绝对居中与随机播放按钮移除**：
+    - 在全沉浸模式下彻底移除随机播放/交叉箭头混音按钮（`#cuefield-automix-btn` 与 `#play-mode-btn` 强制 `display: none !important`）；
+    - 重构全沉浸底栏为对称三栏网格（`grid-template-columns: 1fr auto 1fr`）：左栏（Column 1）承载 `#immersive-btn`（右对齐靠近中区），中栏（Column 2）承载核心播放控制（`#prev-btn`、`#play-btn`、`#next-btn`）居中对齐，**主播放按钮像素级锚定于底栏及屏幕水平 100% 绝对正中心**，右栏（Column 3）承载 `#time-display`（左对齐靠近中区），间距统一 14px，消除了以往由于左侧无配重、右侧塞入过多控件导致播放按钮严重偏左的视觉失衡。
+
 ### 实测验证记录
 - **自动化测试命令**：
   ```bash
   node scripts/quick-check.js
   ```
 - **实测证据**：
-  - `node scripts/quick-check.js` 全绿通过（41/41 client scripts parsed as valid JS，All checks passed clean）；
-  - 覆盖项包括：底栏控制完整性、无残留冗余门禁、新版首页四模块与发现新歌弹窗 DOM 结构及样式校验、纯原生 JS 语法完整性。
+  - `node scripts/quick-check.js` 106 个客户端模块全量解析通过，全套守卫检测 100% 全绿通过（All checks passed clean）；
+  - 覆盖项包括：底栏控制完整性、无残留冗余门禁、新版首页四模块、右下角悬停零反馈、全沉浸三栏绝对对称网格以及纯原生 JS 语法完整性；
+  - Git Commit `2cdb3aa` 已全量推送至 GitHub `main` 分支，工作树 clean。
 
 ---
 

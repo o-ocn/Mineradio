@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   getLastFmConfig: () => ipcRenderer.invoke('mineradio-lastfm-get-config'),
   saveLastFmConfig: (config) => ipcRenderer.invoke('mineradio-lastfm-save-config', config || {}),
   getLastFmAuthUrl: () => ipcRenderer.invoke('mineradio-lastfm-get-auth-url'),
+  lastFmOpenAuth: () => ipcRenderer.invoke('mineradio-lastfm-open-auth'),
   createLastFmSession: (token) => ipcRenderer.invoke('mineradio-lastfm-create-session', String(token || '')),
   lastFmUpdateNowPlaying: (trackInfo) => ipcRenderer.invoke('mineradio-lastfm-now-playing', trackInfo || {}),
   lastFmScrobble: (trackInfo) => ipcRenderer.invoke('mineradio-lastfm-scrobble', trackInfo || {}),

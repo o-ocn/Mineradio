@@ -4895,6 +4895,16 @@ ipcMain.handle('mineradio-lastfm-get-auth-url', async () => {
   return { ok: true, url: lastFmService.getAuthUrl() };
 });
 
+ipcMain.handle('mineradio-lastfm-open-auth', async () => {
+  try {
+    const url = lastFmService.getAuthUrl();
+    await shell.openExternal(url);
+    return { ok: true, url };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
 ipcMain.handle('mineradio-lastfm-create-session', async (_event, token) => {
   return lastFmService.createSession(token);
 });

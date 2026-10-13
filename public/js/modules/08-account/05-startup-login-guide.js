@@ -106,20 +106,8 @@ function runLoginGuideParticles(done) {
   loginGuideRaf = requestAnimationFrame(draw);
 }
 function maybeRunStartupLoginGuide(source) {
-  if (startupLoginGuideShown || loginGuideAnimating) return;
-  if (typeof loginEasterEggAllowsStartupGuide === 'function' && !loginEasterEggAllowsStartupGuide()) return;
-  if (visualGuideActive) return;
-  if (document.body.classList.contains('splash-active')) return;
-  if (immersiveMode) return;
-  if (!loginStatusChecked || loginStatusCheckFailed || loginStatus.loggedIn || playing) return;
-  var loginModal = document.getElementById('login-modal');
-  var userModal = document.getElementById('user-modal');
-  if ((loginModal && loginModal.classList.contains('show')) || (userModal && userModal.classList.contains('show'))) return;
-  startupLoginGuideShown = true;
-  setTimeout(function () {
-    if (loginStatus.loggedIn || playing || immersiveMode || document.body.classList.contains('splash-active')) return;
-    runLoginGuideParticles(function () { showLoginModal({ guided: true, source: source || 'startup' }); });
-  }, source === 'splash' ? 6200 : 2600);
+  // 取消启动自动弹窗：用户不手动点击登录时，不再在启动后强制弹出登录框
+  return;
 }
 
 // ============================================================

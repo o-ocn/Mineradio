@@ -251,21 +251,32 @@ async function saveLastFmSettingsFromModal() {
 
 async function openLastFmWebAuth() {
   var api = window.desktopWindow;
-  if (!api || typeof api.getLastFmAuthUrl !== 'function') return;
   try {
-    var res = await api.getLastFmAuthUrl();
-    if (res && res.url) {
-      if (typeof api.openUpdatePage === 'function') {
-        api.openUpdatePage(res.url);
-      } else {
-        window.open(res.url, '_blank');
+    if (api && typeof api.lastFmOpenAuth === 'function') {
+      var res = await api.lastFmOpenAuth();
+      if (res && res.ok) {
+        if (typeof showToast === 'function') {
+          showToast('已在系统浏览器打开 Last.fm 授权页，授权完成后请填入 Session 或用户名');
+        }
+        return;
       }
-      if (typeof showToast === 'function') {
-        showToast('已在浏览器打开 Last.fm 授权页，授权完成后请填入 Session 或用户名');
+    }
+    if (api && typeof api.getLastFmAuthUrl === 'function') {
+      var res2 = await api.getLastFmAuthUrl();
+      if (res2 && res2.url) {
+        if (typeof api.openUpdatePage === 'function') {
+          await api.openUpdatePage(res2.url);
+        } else {
+          window.open(res2.url, '_blank');
+        }
+        if (typeof showToast === 'function') {
+          showToast('已在系统浏览器打开 Last.fm 授权页，授权完成后请填入 Session 或用户名');
+        }
+        return;
       }
     }
   } catch (error) {
-    if (typeof showToast === 'function') showToast('打开授权链接失败');
+    if (typeof showToast === 'function') showToast('打开授权链接失败: ' + (error && error.message || error));
   }
 }
 

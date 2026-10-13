@@ -96,7 +96,7 @@ function setPeek(el, on, key) {
       scheduleUiWarmTask(function () {
         flushDeferredQueuePanel('playlist-panel-peek');
         if (runPlaylistOpenAnimation) animatePlaylistPanelCurrentTab(el, { scrollActive: false });
-      }, 180);
+      }, 320);
     }
     if (key === 'fx') {
       var fabOn = document.getElementById('fx-fab');

@@ -211,8 +211,11 @@ function preparePlaylistPanelTabOnOpen(panel) {
   } else if (!playQueue.length && queueViewTab === 'queue') {
     switchPlaylistTab('playlists', { save: false, animate: false, refresh: false });
   }
-  if (queueViewTab === 'queue') scrollPlaylistPanelToCurrent();
-  else if (queueViewTab === 'playlists' || queueViewTab === 'podcasts') refreshUserPlaylists();
+  setTimeout(function () {
+    if (!panel || (!panel.classList.contains('show') && !panel.classList.contains('peek'))) return;
+    if (queueViewTab === 'queue') scrollPlaylistPanelToCurrent();
+    else if (queueViewTab === 'playlists' || queueViewTab === 'podcasts') refreshUserPlaylists();
+  }, 280);
 }
 function switchPlaylistTab(tab, opts) {
   opts = opts || {};

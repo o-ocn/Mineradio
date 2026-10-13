@@ -143,7 +143,7 @@ class LastFmService {
 
   getAuthUrl() {
     const apiKey = this.config.apiKey || DEFAULT_API_KEY;
-    return `http://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}`;
+    return `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}`;
   }
 
   async createSession(token) {

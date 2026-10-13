@@ -50,7 +50,7 @@ function beginLyricMaskLayoutBuild(input, layoutOverride) {
   var maxCanvasW = Math.max(baseCanvasW, Math.min(6144, rendererMaxTexture || 4096));
   var entries = payload && payload.entries && payload.entries.length ? payload.entries : [{ text: '', role: 'current', alpha: 1, scale: 1 }];
   var desiredLines = Math.max(1, entries.length);
-  var H = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 608 : (desiredLines > 2 ? 512 : 384)))))));
+  var H = desiredLines > 9 ? 1344 : (desiredLines > 8 ? 1216 : (desiredLines > 7 ? 1088 : (desiredLines > 6 ? 960 : (desiredLines > 5 ? 832 : (desiredLines > 4 ? 704 : (desiredLines > 3 ? 640 : (desiredLines > 2 ? 620 : 384)))))));
   var measureCanvas = document.createElement('canvas');
   var ctx = measureCanvas.getContext('2d');
   var maxLines = Math.max(STAGE_LYRIC_MAX_LINES, entries.length);
@@ -143,7 +143,8 @@ function finalizeLyricMaskLayoutBuild(state) {
     return measured;
   }
   function lyricMaskLayoutFits(size, measuredWidth) {
-    var testLineHeight = size * (lines.length > 1 ? 0.98 : 1.0) * lyricLineHeightFactor();
+    var spacingMult = lines.length > 1 ? 1.38 : 1.0;
+    var testLineHeight = size * spacingMult * lyricLineHeightFactor();
     var testBlockH = size + (lines.length - 1) * testLineHeight;
     return measuredWidth <= maxWidth && testBlockH <= H - 76;
   }
@@ -153,7 +154,7 @@ function finalizeLyricMaskLayoutBuild(state) {
     var minimumStepFont = fitBaseSize;
     while (minimumStepFont > minFont) minimumStepFont -= 4;
     var baseWidest = measureWidestAtSize(fitBaseSize);
-    var baseLineHeight = fitBaseSize * (lines.length > 1 ? 0.98 : 1.0) * lyricLineHeightFactor();
+    var baseLineHeight = fitBaseSize * (lines.length > 1 ? 1.38 : 1.0) * lyricLineHeightFactor();
     var baseBlockH = fitBaseSize + (lines.length - 1) * baseLineHeight;
     var fitRatio = Math.min(1, maxWidth / Math.max(1, baseWidest), (H - 76) / Math.max(1, baseBlockH));
     var estimatedFont = Math.floor((fitBaseSize * Math.max(0.01, fitRatio)) / 4) * 4;
@@ -195,7 +196,7 @@ function finalizeLyricMaskLayoutBuild(state) {
   var lockedLineHeight = Number(layoutOverride.lineHeight);
   var lineHeight = isFinite(lockedLineHeight) && lockedLineHeight > 0
     ? lockedLineHeight
-    : fontSize * (lines.length > 1 ? 0.98 : 1.0) * lyricLineHeightFactor() * (lines.length > 1 ? lyricContextSpreadValue() : 1);
+    : fontSize * (lines.length > 1 ? 1.38 : 1.0) * lyricLineHeightFactor() * (lines.length > 1 ? lyricContextSpreadValue() : 1);
   var activeEntry = entries[activeLine] || {};
   var activeTextWidth = activeLine === widestMeasureIndex
     ? widest

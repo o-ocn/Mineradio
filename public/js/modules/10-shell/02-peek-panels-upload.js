@@ -420,22 +420,8 @@ window.addEventListener('mousemove', function (e) {
   var inSearchPanel = saOn && ex >= saRect.left - 24 && ex <= saRect.right + 24 && ey >= saRect.top - 22 && ey <= saRect.bottom + 42;
   if (ey < 66 || inSearchPanel || searchFocused || uploadTipOpen || uploadImportOpen) setPeek(sa, true, 'search');
   else if ((saOn || isSearchPeekRevealPending()) && !emptyHomeActive) setPeek(sa, false, 'search');
-  // 控制台: 右下角触发；一旦面板出现，就按真实面板矩形保留显示
-  var fpOn = fp.classList.contains('peek') || fp.classList.contains('show');
-  var fpRect = fp.getBoundingClientRect();
-  var fab = document.getElementById('fx-fab');
-  var fabRect = fab ? fab.getBoundingClientRect() : { left: W, right: W, top: H, bottom: H };
-  var inFxPanel = fpOn && ex >= fpRect.left - 24 && ex <= fpRect.right + 24 && ey >= fpRect.top - 24 && ey <= fpRect.bottom + 24;
-  var inFxFab = ex >= fabRect.left - 18 && ex <= fabRect.right + 18 && ey >= fabRect.top - 18 && ey <= fabRect.bottom + 18;
-  var inFxBridge = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
-  if (!diyPlayerMode) inFxPanel = inFxFab = inFxBridge = false;
-  if (fxPanelPinned || (fp && (fp.classList.contains('show') || fp.classList.contains('pinned')))) {
-    // 视觉设置已固定常驻，鼠标移开不收起
-  } else if (inFxFab || inFxPanel || inFxBridge) {
-    setPeek(fp, true, 'fx');
-  } else if (fpOn) {
-    setPeek(fp, false, 'fx');
-  }
+  // 控制台: 仅通过主动点击 #fx-fab 展开/收起，禁用鼠标悬停窥视交互 (hover peek)
+  // 不在此处对 fp 触发 setPeek，保持悬停零交互
   // 歌单/队列 DOM 面板只在左侧明确停留时出现，避免和右侧 3D 架抢焦点
   var ppOn = isPlaylistPanelActiveState(pp);
   var ppRect = pp.getBoundingClientRect();

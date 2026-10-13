@@ -327,7 +327,7 @@
       </button>
     </div>
 
-    <button id="fx-fab" onclick="toggleFxPanel(event)" title="视觉控制台">
+    <button id="fx-fab" onclick="toggleFxPanel(event)" aria-label="视觉控制台">
       <svg width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
         <path d="M4 7h8" />
         <path d="M16 7h4" />
@@ -337,7 +337,7 @@
         <circle cx="10" cy="17" r="2" />
       </svg>
     </button>
-    <button id="fx-fab-hide-btn" type="button" onclick="toggleFxFabAutoHide(event)" title="自动隐藏视觉控制台">‹</button>
+    <button id="fx-fab-hide-btn" type="button" onclick="toggleFxFabAutoHide(event)" aria-label="自动隐藏视觉控制台" style="display:none">‹</button>
 
     <!-- 控制台 (右侧贴边自动显示, 无关闭按钮) -->
     <div id="fx-panel">

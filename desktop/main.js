@@ -5293,6 +5293,11 @@ function showMainWindowSafely(win, reason) {
   ensureMainWindowInsideDisplay(win);
   if (win.isMinimized()) win.restore();
   if (!win.isVisible()) win.show();
+  try {
+    win.setAlwaysOnTop(true);
+    win.focus();
+    win.setAlwaysOnTop(false);
+  } catch (_) {}
   resetMainWindowZoom(win);
   sendWindowState(win);
   if (!startupState.windowVisibleAt) {
@@ -5901,6 +5906,7 @@ async function createWindowOnce() {
   startupCompleted = true;
   startMainWindowVisibilityGuard(win);
   showMainWindowSafely(win, 'navigation-complete');
+  console.log('[MainWindowDebug]', { isVisible: win.isVisible(), isMinimized: win.isMinimized(), bounds: win.getBounds(), title: win.getTitle() });
   writeStartupState('ready', { readyAt: Date.now(), port: mainServerPort || Number(process.env.PORT) || 3000 });
   const qaExitMs = Math.max(0, Math.min(10000, Number(process.env.MINERADIO_STARTUP_QA_EXIT_MS) || 0));
   if (qaExitMs) {

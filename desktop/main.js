@@ -15,6 +15,7 @@ const {
   registerLocalMusicScheme,
 } = require('./local-music-library');
 const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
+const { syncLocalM3uPlaylists } = require('./local-playlist-sync');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
 const {
@@ -144,7 +145,10 @@ const STARTUP_QA_USER_DATA_PATH = (() => {
   if (process.env.MINERADIO_STARTUP_QA_HIDDEN !== '1' || !value || !path.isAbsolute(value)) return '';
   return path.resolve(value);
 })();
-const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || path.join(app.getPath('appData'), APP_NAME);
+const PORTABLE_USER_DATA_PATH = process.env.MINERADIO_USER_DATA_PATH
+  ? path.resolve(process.env.MINERADIO_USER_DATA_PATH)
+  : path.resolve(__dirname, '..', 'data');
+const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || PORTABLE_USER_DATA_PATH;
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
@@ -4613,6 +4617,15 @@ ipcMain.handle('mineradio-built-in-playlist-reorder-track', async (event, id, fr
   try { return await builtInPlaylistLibrary.reorderTrack(id, fromIndex, toIndex); } catch (error) { return builtInPlaylistMutationError(error); }
 });
 
+ipcMain.handle('mineradio-local-playlists-sync', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  try {
+    return await syncLocalM3uPlaylists(localMusicLibrary, builtInPlaylistLibrary);
+  } catch (error) {
+    return { ok: false, error: error && error.message || 'LOCAL_PLAYLISTS_SYNC_FAILED' };
+  }
+});
+
 ipcMain.handle('mineradio-local-library-lyric', async (event, localFileId) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, lyric: '', lyricSource: '', error: 'UNTRUSTED_SENDER' };
   try {
@@ -5935,6 +5948,11 @@ if (!gotSingleInstanceLock) {
       await localMusicLibrary.installProtocol(protocol);
     } catch (error) {
       console.warn('[LocalMusic] media protocol unavailable:', error && error.message || error);
+    }
+    try {
+      await syncLocalM3uPlaylists(localMusicLibrary, builtInPlaylistLibrary);
+    } catch (error) {
+      console.warn('[LocalMusic] startup playlist sync failed:', error && error.message || error);
     }
     try {
       await wallpaperEngineLibrary.installProtocol(protocol);

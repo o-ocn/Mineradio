@@ -45,7 +45,12 @@ function builtInPlaylistErrorMessage(result, fallback) {
 function refreshBuiltInPlaylists(force) {
   if (!builtInPlaylistApiAvailable()) return Promise.resolve(false);
   if (builtInPlaylistLoadPromise && !force) return builtInPlaylistLoadPromise;
-  var request = window.desktopWindow.listBuiltInPlaylists().then(function (result) {
+  var syncPromise = (force && typeof window.desktopWindow.syncLocalPlaylists === 'function')
+    ? window.desktopWindow.syncLocalPlaylists().catch(function () {})
+    : Promise.resolve();
+  var request = syncPromise.then(function () {
+    return window.desktopWindow.listBuiltInPlaylists();
+  }).then(function (result) {
     if (!result || result.ok !== true) throw new Error(result && result.error || 'BUILT_IN_PLAYLIST_READ_FAILED');
     applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlists-refresh' });
     return true;

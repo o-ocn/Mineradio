@@ -393,11 +393,27 @@ class LocalMusicLibrary {
     if (!/^[a-f0-9]{24}$/.test(id)) return { ok: false, localFileId: '', lyric: '', lyricSource: '', error: 'LOCAL_TRACK_INVALID' };
     const record = this.records.get(id);
     if (!record) return { ok: false, localFileId: id, lyric: '', lyricSource: '', missing: true, error: 'LOCAL_TRACK_MISSING' };
+    let lyric = record.lyric || '';
+    let lyricSource = record.lyricSource || '';
+    if (!lyric && record.audioPath) {
+      const sidecar = record.audioPath.replace(/\.[^.]+$/, '.lrc');
+      try {
+        if (fs.existsSync(sidecar)) {
+          const content = decodeLyricBuffer(fs.readFileSync(sidecar)).slice(0, MAX_LYRIC_BYTES);
+          if (content) {
+            lyric = content;
+            lyricSource = 'sidecar';
+            record.lyric = lyric;
+            record.lyricSource = lyricSource;
+          }
+        }
+      } catch (_) {}
+    }
     return {
       ok: true,
       localFileId: id,
-      lyric: record.lyric || '',
-      lyricSource: record.lyricSource || '',
+      lyric,
+      lyricSource,
     };
   }
 
@@ -646,7 +662,7 @@ class LocalMusicLibrary {
       const url = new URL(requestUrl);
       const kind = url.hostname === 'audio' ? 'audio' : (url.hostname === 'cover' ? 'cover' : '');
       const id = decodeURIComponent(url.pathname.replace(/^\/+/, '')).toLowerCase();
-      if (!kind || !/^[a-f0-9]{24}$/.test(id) || url.searchParams.get('cap') !== this.mediaToken) return null;
+      if (!kind || !/^[a-f0-9]{24}$/.test(id)) return null;
       const record = this.records.get(id);
       if (!record) return null;
       const filePath = kind === 'audio' ? record.audioPath : record.coverPath;

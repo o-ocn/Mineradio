@@ -454,13 +454,30 @@ function parseLyricText(text) {
   var lines = [], reg = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]/g;
   var rawEntries = [];
   String(text || '').split(/\r?\n/).forEach(function (line) {
-    var times = [], m;
+    var tags = [], times = [], m;
     reg.lastIndex = 0;
     while ((m = reg.exec(line))) {
       var t = lyricTagTimeToSeconds(m[1], m[2], m[3]);
       times.push(t);
+      tags.push({ t: t, index: m.index, end: reg.lastIndex });
     }
     if (!times.length) return;
+    var hasInterleavedText = false;
+    for (var i = 0; i < tags.length - 1; i++) {
+      if (line.slice(tags[i].end, tags[i + 1].index).trim()) {
+        hasInterleavedText = true;
+        break;
+      }
+    }
+    if (hasInterleavedText) {
+      for (var si = 0; si < tags.length; si++) {
+        var segment = line.slice(tags[si].end, si + 1 < tags.length ? tags[si + 1].index : line.length).trim();
+        if (segment) {
+          rawEntries.push({ t: tags[si].t, body: segment, hasWordTags: false });
+        }
+      }
+      return;
+    }
     var body = line.replace(reg, '');
     if (!body.trim()) return;
     var hasWordTags = /<\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?>/.test(body);

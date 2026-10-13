@@ -2000,10 +2000,14 @@ function refreshCurrentLyricStyle() {
   if (!stageLyrics || !stageLyrics.currentText || !stageLyrics.current) return;
   var progress = stageLyrics.current.userData ? (stageLyrics.current.userData.lastLyricProgress || 0) : 0;
   stageLyrics.transitionLineStep = 0;
-  var redrawPayload = stageLyrics.currentPayload || stageLyrics.currentText;
-  if (stageLyrics.currentIdx >= 0 && stageLyricMultiLineWarmupLoad()) {
-    redrawPayload = buildStageLyricDisplayPayload(stageLyrics.currentIdx, { lightweightTrack: true }) || redrawPayload;
+  var redrawPayload = null;
+  if (stageLyrics.currentIdx >= 0) {
+    redrawPayload = buildStageLyricDisplayPayload(stageLyrics.currentIdx, { lightweightTrack: true });
   }
+  if (!redrawPayload) {
+    redrawPayload = stageLyrics.currentPayload || stageLyrics.currentText;
+  }
+  stageLyrics.currentPayload = redrawPayload;
   showStageLine(redrawPayload, true);
   updateLyricMeshProgress(stageLyrics.current, progress);
   if (stageLyrics.current && stageLyrics.current.userData) stageLyrics.current.userData.age = 0.48;
@@ -2942,12 +2946,11 @@ function buildStageLyricDisplayPayload(index, options) {
   if (!current) return null;
   if (mode === 'single') {
     var singleTrack = stageLyricSingleLineTrackStub(index);
-    var singleTranslated = applyLyricTranslationModeToEntries([current], 0);
     return {
-      mode: mode,
-      key: 'single|' + index + '|' + singleTranslated.entries.map(function (entry) { return entry.role + ':' + entry.text; }).join('\n'),
-      activeLine: singleTranslated.activeLine,
-      entries: singleTranslated.entries,
+      mode: 'single',
+      key: 'single|' + index + '|' + current.role + ':' + current.text,
+      activeLine: 0,
+      entries: [current],
       trackIndex: index,
       trackKey: '',
       trackEntries: singleTrack.entries,

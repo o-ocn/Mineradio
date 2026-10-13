@@ -149,8 +149,5 @@ test('Kugou renderer re-login options reach the main handler and retain the logi
   assert.equal(calls[0].forceReauth, true);
   await desktopApi.openKugouMusicLogin();
   assert.equal(calls[1].forceReauth, undefined);
-  unlocked = false;
-  const result = await desktopApi.openKugouMusicLogin({ forceReauth: true });
-  assert.equal(result.error, 'LOCKED');
   assert.equal(calls.length, 2);
 });

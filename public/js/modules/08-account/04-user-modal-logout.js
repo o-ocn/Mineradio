@@ -169,6 +169,10 @@ function resetAllProviderRendererLoginState() {
   }
 }
 
+function logoutAllAccounts() {
+  return logoutAllAccountsAndResetEasterEgg();
+}
+
 async function logoutAllAccountsAndResetEasterEgg() {
   if (logoutAllAccountsResetBusy) return;
   if (Date.now() > logoutAllAccountsResetConfirmUntil) {
@@ -206,11 +210,10 @@ async function logoutAllAccountsAndResetEasterEgg() {
     homeForcedOpen = true;
     if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(true);
     if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility({ forceLoad: false });
-    if (typeof renderHomeDashboard === 'function') renderHomeDashboard();
-    showToast('已退出全部账号，登录彩蛋已重新开启');
+    showToast('已退出全部平台账号');
   } catch (error) {
-    console.warn('Logout all accounts and reset easter egg failed:', error);
-    showToast('清理未完成，请重启后重试');
+    console.warn('Logout all accounts failed:', error);
+    showToast('退出未完全成功，请重试');
   } finally {
     logoutAllAccountsResetBusy = false;
     if (button) {

@@ -71,146 +71,37 @@ class LoginEasterEggGate {
     return {
       ok: true,
       gateVersion: LOGIN_EASTER_EGG_GATE_VERSION,
-      unlocked: this.state.gateVersion === LOGIN_EASTER_EGG_GATE_VERSION && this.state.unlocked === true,
-      resetComplete: this.state.gateVersion === LOGIN_EASTER_EGG_GATE_VERSION && this.state.resetComplete === true,
+      unlocked: true,
+      resetComplete: true,
+      disabled: true,
     };
   }
 
   isUnlocked() {
-    const status = this.publicStatus();
-    return status.unlocked && status.resetComplete;
+    return true;
   }
 
   resolveCredentialRoots() {
-    let extraRoots = this.credentialRoots;
-    if (typeof extraRoots === 'function') extraRoots = extraRoots();
-    if (!Array.isArray(extraRoots)) extraRoots = [extraRoots];
-    const roots = [this.userDataPath].concat(extraRoots || []);
-    return Array.from(new Set(roots.filter(Boolean).map((root) => path.resolve(String(root)))));
+    return [];
   }
 
   clearCredentialFiles() {
-    for (const root of this.resolveCredentialRoots()) {
-      for (const name of LOGIN_EASTER_EGG_CREDENTIAL_FILES) {
-        const file = path.join(root, name);
-        try {
-          if (fs.existsSync(file)) fs.unlinkSync(file);
-        } catch (error) {
-          throw new Error(`LOGIN_CREDENTIAL_CLEAR_FAILED:${file}:${error.message}`);
-        }
-      }
-    }
+    // Disabled: never wipe user credentials
   }
 
   async clearCredentialState(clearProviderSessions) {
-    this.clearCredentialFiles();
-    if (typeof clearProviderSessions === 'function') await clearProviderSessions();
-    // Logout handlers may flush an empty or stale in-memory store while the
-    // provider sessions are closing. The second pass also removes migration
-    // copies so a later launch cannot restore an old credential.
-    this.clearCredentialFiles();
+    // Disabled: never wipe user credentials
   }
 
   async initialize(clearProviderSessions) {
-    this.state = this.readState();
-    if (
-      this.state.gateVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      this.state.cookieResetVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      this.state.resetComplete
-    ) {
-      if (!this.state.unlocked) {
-        try {
-          await this.clearCredentialState(clearProviderSessions);
-        } catch (error) {
-          const resetError = String(error && error.message || error || 'LOGIN_SESSION_RESET_FAILED');
-          try {
-            this.writeState({ cookieResetVersion: '', resetComplete: false, resetError });
-          } catch (_) {
-            this.state = Object.assign({}, this.state, { cookieResetVersion: '', resetComplete: false, resetError });
-          }
-          return Object.assign({ resetPerformed: false, error: resetError }, this.publicStatus());
-        }
-      }
-      return Object.assign({ resetPerformed: false }, this.publicStatus());
-    }
-
-    let resetError = '';
-    try {
-      await this.clearCredentialState(clearProviderSessions);
-    } catch (error) {
-      resetError = String(error && error.message || error || 'LOGIN_SESSION_RESET_FAILED');
-    }
-
-    const nextState = {
-      gateVersion: LOGIN_EASTER_EGG_GATE_VERSION,
-      cookieResetVersion: resetError ? '' : LOGIN_EASTER_EGG_GATE_VERSION,
-      resetComplete: !resetError,
-      unlocked: false,
-      resetAt: this.now(),
-      unlockedAt: 0,
-      resetError,
-    };
-    try {
-      this.writeState(nextState);
-    } catch (error) {
-      resetError = `LOGIN_EASTER_EGG_STATE_WRITE_FAILED:${error.message}`;
-      this.state = Object.assign({}, this.state, nextState, {
-        cookieResetVersion: '',
-        resetComplete: false,
-        resetError,
-      });
-    }
-    return Object.assign({ resetPerformed: true, error: resetError || '' }, this.publicStatus());
+    return Object.assign({ resetPerformed: false }, this.publicStatus());
   }
 
   async resetForReplay(clearProviderSessions) {
-    this.state = this.readState();
-    let resetError = '';
-    try {
-      await this.clearCredentialState(clearProviderSessions);
-    } catch (error) {
-      resetError = String(error && error.message || error || 'LOGIN_SESSION_RESET_FAILED');
-    }
-    const nextState = {
-      gateVersion: LOGIN_EASTER_EGG_GATE_VERSION,
-      cookieResetVersion: resetError ? '' : LOGIN_EASTER_EGG_GATE_VERSION,
-      resetComplete: !resetError,
-      unlocked: false,
-      resetAt: this.now(),
-      unlockedAt: 0,
-      resetError,
-    };
-    try {
-      this.writeState(nextState);
-    } catch (error) {
-      resetError = `LOGIN_EASTER_EGG_STATE_WRITE_FAILED:${error.message}`;
-      this.state = Object.assign({}, this.state, nextState, {
-        cookieResetVersion: '',
-        resetComplete: false,
-        resetError,
-      });
-    }
-    return Object.assign({ resetPerformed: true, replayReset: true, error: resetError || '' }, this.publicStatus());
+    return Object.assign({ resetPerformed: false, replayReset: false }, this.publicStatus());
   }
 
   unlock(input) {
-    this.state = this.readState();
-    if (!this.state.resetComplete || this.state.gateVersion !== LOGIN_EASTER_EGG_GATE_VERSION) {
-      return { ok: false, unlocked: false, error: 'LOGIN_EASTER_EGG_RESET_INCOMPLETE' };
-    }
-    if (!securePasswordMatch(input)) {
-      return { ok: false, unlocked: false, error: 'LOGIN_EASTER_EGG_INVALID' };
-    }
-    try {
-      this.writeState({ unlocked: true, unlockedAt: this.now(), resetError: '' });
-    } catch (error) {
-      return {
-        ok: false,
-        unlocked: false,
-        error: 'LOGIN_EASTER_EGG_STATE_WRITE_FAILED',
-        message: String(error && error.message || error),
-      };
-    }
     return this.publicStatus();
   }
 }

@@ -389,36 +389,9 @@ function bindHomeDashboardVideoControls() {
 
 function renderHomeDashboardHero() {
   var hero = document.querySelector('#empty-home .home-hero');
-  if (!hero) return;
-  var review = homeDashboardSelectedReview();
-  var fingerprint = homeDashboardDayNumber() + '|' + homeDashboardReviewOffset + '|' + review.text + '|' + review.source;
-  if (!hero.querySelector('.daily-review-card')) {
-    hero.innerHTML = '<div class="daily-review-card">' +
-      '<div id="daily-review-date" class="daily-review-date"></div>' +
-      '<div id="daily-review-time" class="daily-review-time">--:--</div>' +
-      '<div class="daily-review-quote"></div>' +
-      '<div class="daily-review-source"></div>' +
-      '<div class="daily-review-actions">' +
-      '<button type="button" onclick="homeDashboardNextReview()">换一条</button>' +
-      '<button id="home-dashboard-video-choose" type="button" onclick="openHomeDashboardVideoPicker()">选择 MP4</button>' +
-      '<button id="home-dashboard-video-clear" type="button" onclick="clearHomeDashboardVideo()" hidden>移除视频</button>' +
-      '<button type="button" onclick="openHomePlayerConsole()">展开播放器控制台</button>' +
-      '</div></div>' +
-      '<input id="home-dashboard-video-input" type="file" accept=".mp4,video/mp4" hidden aria-hidden="true">';
-    homeDashboardVideoControlsBound = false;
-    bindHomeDashboardVideoControls();
-  }
-  if (fingerprint !== homeDashboardHeroFingerprint) {
-    homeDashboardHeroFingerprint = fingerprint;
-    var quote = hero.querySelector('.daily-review-quote');
-    var source = hero.querySelector('.daily-review-source');
-    if (quote) quote.textContent = '“' + review.text + '”';
-    if (source) source.textContent = '— ' + (review.source || '每日热评');
-  }
-  homeDashboardRenderVideoActions();
-  homeDashboardUpdateVideoPower();
-  homeDashboardUpdateClock();
+  if (hero) hero.style.display = 'none';
 }
+
 
 function homeDashboardNextReview() {
   homeDashboardReviewOffset += 1;
@@ -559,15 +532,6 @@ function renderHomeDashboardQuickCards() {
       cover: localSongs[0] ? homeDashboardSongCover(localSongs[0], 260) : '',
       action: 'openHomeDashboardLibrary()',
       tone: 'library',
-      className: 'home-card-quick',
-    },
-    {
-      label: 'DAILY MIX',
-      title: '每日推荐',
-      sub: daily ? ((daily.name || daily.title || '今日歌曲') + (homeDashboardSubtitle(daily) ? ' · ' + homeDashboardSubtitle(daily) : '')) : '使用当前 Mineradio 推荐数据',
-      cover: homeDashboardSongCover(daily, 260),
-      action: 'playHomeDaily()',
-      tone: 'mix',
       className: 'home-card-quick',
     },
     {

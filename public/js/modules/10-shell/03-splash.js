@@ -1,7 +1,9 @@
 // ============================================================
 
-document.body.classList.add('splash-active');
-var splashAnimating = true;
+var splashAnimating = !startupFastSkipPreference;
+if (!startupFastSkipPreference) {
+  document.body.classList.add('splash-active');
+}
 var splashCanvas = null, splashCtx = null;
 var splashGl = null, splashGlProgram = null, splashGlBuffer = null, splashGlUniforms = null;
 var splashW = 0, splashH = 0;

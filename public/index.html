@@ -158,22 +158,10 @@
       </div>
     </div>
 
-    <!-- 音乐 Home：只承载当前 Mineradio 数据，不引入外部仓库的服务端接口。 -->
+    <!-- 音乐 Home：极简本地音乐与 Last.fm 看板 -->
     <section id="empty-home" aria-label="Mineradio 音乐首页">
       <div class="empty-home-shell">
-        <div class="home-hero" aria-live="polite">
-          <div class="daily-review-card">
-            <div id="daily-review-date" class="daily-review-date"></div>
-            <div id="daily-review-time" class="daily-review-time">--:--</div>
-            <div class="daily-review-quote">“让今天的声音，从你喜欢的地方开始。”</div>
-            <div class="daily-review-source">— Mineradio</div>
-            <div class="daily-review-actions">
-              <button type="button" onclick="homeDashboardNextReview()">换一条</button>
-              <button id="home-dashboard-video-choose" type="button" onclick="openHomeDashboardVideoPicker()">选择 MP4</button>
-              <button id="home-dashboard-video-clear" type="button" onclick="clearHomeDashboardVideo()" hidden>移除视频</button>
-              <button type="button" onclick="openHomePlayerConsole()">展开播放器控制台</button>
-            </div>
-          </div>
+        <div class="home-hero" aria-live="polite" style="display:none">
           <input id="home-dashboard-video-input" type="file" accept=".mp4,video/mp4" hidden aria-hidden="true">
         </div>
 
@@ -189,14 +177,7 @@
             onclick="openHomeDashboardLibrary()">
             <div class="home-card-label">LIBRARY</div>
             <div class="home-card-title">音乐库</div>
-            <div class="home-card-sub">歌单、本地音乐和已登录平台</div>
-            <div class="home-card-art"></div>
-          </button>
-          <button class="home-card home-card-quick" data-home-tone="mix" type="button"
-            onclick="playHomeDaily()">
-            <div class="home-card-label">DAILY MIX</div>
-            <div class="home-card-title">每日推荐</div>
-            <div class="home-card-sub">使用当前 Mineradio 推荐数据</div>
+            <div class="home-card-sub">歌单、本地音乐与播放列表</div>
             <div class="home-card-art"></div>
           </button>
           <button class="home-card home-card-quick" data-home-tone="playlist" type="button"
@@ -209,7 +190,7 @@
         </div>
 
         <div class="home-rail home-insight-rail">
-          <div id="home-insight-dock" class="home-insight-dock" aria-label="今日聆听和音乐发现">
+          <div id="home-insight-dock" class="home-insight-dock" aria-label="今日聆听与 Last.fm">
             <section class="home-insight-card home-listen-card" aria-labelledby="home-listen-heading">
               <div class="home-insight-head">
                 <div id="home-listen-heading" class="home-insight-kicker">LISTENING TODAY · 今日聆听</div>
@@ -236,36 +217,19 @@
               <span class="home-next-arrow" aria-hidden="true">›</span>
             </button>
 
-            <section class="home-discovery-strip" aria-label="为你挑选">
-              <div class="home-discovery-copy">
-                <span class="home-insight-kicker">FOR YOU · 为你挑选</span>
-                <span class="home-discovery-title">换一首，也许正合心意</span>
-                <span class="home-discovery-sub">从每日推荐、歌单与本地音乐中挑选</span>
+            <section id="home-lastfm-card" class="home-insight-card home-lastfm-card" aria-label="Last.fm 音乐推荐与听歌画像">
+              <div class="home-insight-head">
+                <div class="home-insight-kicker">LAST.FM · 音乐探索</div>
+                <button class="home-insight-link" type="button" onclick="openLastFmSettingsModal()">服务设置</button>
               </div>
-              <div id="home-discovery-list" class="home-discovery-list" aria-live="polite"></div>
+              <div id="home-lastfm-content" class="home-lastfm-content">
+                <div id="home-lastfm-status" class="home-lastfm-status">可记录听歌历史并推荐相似歌曲</div>
+                <div id="home-lastfm-recommend-list" class="home-lastfm-recommend-list"></div>
+                <div class="home-lastfm-btn-bar">
+                  <button id="home-lastfm-action-btn" class="home-insight-link" type="button" onclick="refreshHomeLastFmSimilar()">探索相似音乐</button>
+                </div>
+              </div>
             </section>
-
-            <button class="home-insight-card home-ranking-entry" type="button" onclick="openHomeDashboardCharts()"
-              aria-label="打开音乐发现">
-              <span class="home-ranking-entry-copy">
-                <span class="home-insight-kicker">DISCOVER · 音乐发现</span>
-                <span class="home-ranking-entry-title">平台热歌与个人偏好</span>
-                <span class="home-ranking-entry-sub">打开平台推荐中心；没有可信推荐接口时会明确留空</span>
-              </span>
-              <span class="home-ranking-entry-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-              <span class="home-next-arrow" aria-hidden="true">›</span>
-            </button>
-
-            <button class="home-insight-card home-ranking-entry home-radio-entry" type="button"
-              onclick="openHomeDashboardRadio()" aria-label="打开平台推荐">
-              <span class="home-ranking-entry-copy">
-                <span class="home-insight-kicker">PLATFORM PICKS · 平台推荐</span>
-                <span class="home-ranking-entry-title">推荐电台 / 歌单</span>
-                <span class="home-ranking-entry-sub">读取每日歌曲、推荐歌单与推荐 Feed，不用关键词搜索</span>
-              </span>
-              <span class="home-radio-entry-art" aria-hidden="true"><i></i><i></i></span>
-              <span class="home-next-arrow" aria-hidden="true">›</span>
-            </button>
           </div>
 
           <div class="home-legacy-rail" aria-hidden="true">
@@ -1486,34 +1450,9 @@
         <div class="login-panel-head">
           <div><b>登录接入</b><small>拖接口端口到 MR</small></div>
           <button id="login-reset-all-btn" class="login-reset-all-btn" type="button"
-            onclick="logoutAllAccountsAndResetEasterEgg()" title="清除所有平台登录并重新锁定彩蛋">退出登录</button>
+            onclick="logoutAllAccounts()" title="退出已登录平台">退出登录</button>
           <button class="login-panel-close" type="button" onclick="closeLoginModal()">×</button>
         </div>
-        <section id="login-easter-egg-gate" class="login-easter-egg-gate" aria-hidden="true">
-          <button id="login-easter-eye-trigger" class="login-easter-eye-trigger" type="button"
-            onclick="handleLoginEasterEggTap()" aria-label="轻触大小眼">
-            <span class="login-easter-eyes" aria-hidden="true">
-              <i class="login-easter-eye login-easter-eye-big"></i>
-              <i class="login-easter-eye login-easter-eye-small"></i>
-            </span>
-          </button>
-          <div id="login-easter-hint" class="login-easter-hint" aria-live="polite"></div>
-          <div id="login-easter-egg-wish" class="login-easter-egg-wish">
-            <h1>心愿是</h1>
-            <div class="login-easter-input-shell">
-              <div id="login-easter-egg-cells" class="login-easter-cells" aria-hidden="true">
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-                <span class="login-easter-cell"></span>
-              </div>
-              <input id="login-easter-egg-input" class="login-easter-input" type="text"
-                inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-                aria-label="输入四个字的愿望">
-            </div>
-            <div id="login-easter-status" class="login-easter-status" aria-live="polite"></div>
-          </div>
-        </section>
         <div id="login-node-graph" class="login-node-graph" data-provider="netease">
           <svg id="login-workflow-svg" class="workflow-link-layer login-link-layer" aria-hidden="true"></svg>
           <div class="login-platform-tabs login-node-providers" id="login-platform-tabs">
@@ -1568,30 +1507,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div id="login-easter-unlock-cinematic" class="login-easter-unlock-cinematic" role="button" tabindex="-1"
-      aria-hidden="true" aria-label="世界和平，点击继续" onclick="dismissLoginEasterEggCinematic()">
-      <div id="login-easter-unlock-phrase" class="login-easter-unlock-phrase" aria-hidden="true">
-        <span style="--float-duration:3.8s;--float-delay:-.7s;--float-distance:9px">世</span>
-        <span style="--float-duration:4.4s;--float-delay:-2.1s;--float-distance:13px">界</span>
-        <span style="--float-duration:3.5s;--float-delay:-1.4s;--float-distance:8px">和</span>
-        <span style="--float-duration:4.1s;--float-delay:-2.8s;--float-distance:12px">平</span>
-      </div>
-    </div>
-
-    <div id="login-easter-achievement" class="login-easter-achievement" role="status" aria-live="polite"
-      aria-label="已达成成就：世界和平！">
-      <span class="login-easter-achievement-icon" aria-hidden="true">
-        <span class="login-easter-achievement-pixel-eyes">
-          <i class="login-easter-achievement-pixel-eye pixel-eye-big"></i>
-          <i class="login-easter-achievement-pixel-eye pixel-eye-small"></i>
-        </span>
-      </span>
-      <span class="login-easter-achievement-copy">
-        <small>已达成成就</small>
-        <b>世界和平！</b>
-      </span>
     </div>
 
     <!-- 音频路由牵线面板 -->

@@ -1,8 +1,8 @@
 var LOGIN_EASTER_EGG_BROWSER_PREVIEW_KEY = 'mineradio-login-easter-egg-browser-preview-v1';
 var loginEasterEggStatusPromise = null;
 var loginEasterEggState = {
-  ready: false,
-  unlocked: false,
+  ready: true,
+  unlocked: true,
   clickCount: 0,
   revealed: false,
   attempts: 0,
@@ -17,105 +17,40 @@ var loginEasterEggState = {
 };
 
 function loginEasterEggEyeMarkup(compact) {
-  return '<span class="login-easter-eyes' + (compact ? ' compact' : '') + '" aria-hidden="true">' +
-    '<i class="login-easter-eye login-easter-eye-big"></i>' +
-    '<i class="login-easter-eye login-easter-eye-small"></i>' +
-    '</span>';
+  return '';
 }
 
 function loginEasterEggBrowserPreviewUnlocked() {
-  try { return localStorage.getItem(LOGIN_EASTER_EGG_BROWSER_PREVIEW_KEY) === '1'; } catch (_) { return false; }
+  return true;
 }
 
 async function ensureLoginEasterEggStatus(force) {
-  if (!force && loginEasterEggState.ready) return loginEasterEggState.unlocked;
-  if (!force && loginEasterEggStatusPromise) return loginEasterEggStatusPromise;
-  loginEasterEggStatusPromise = (async function () {
-    var api = window.desktopWindow;
-    var status = null;
-    if (api && typeof api.getLoginEasterEggStatus === 'function') {
-      try { status = await api.getLoginEasterEggStatus(); } catch (_) { status = null; }
-    } else {
-      status = { ok: true, unlocked: loginEasterEggBrowserPreviewUnlocked(), browserPreview: true };
-    }
-    loginEasterEggState.ready = true;
-    loginEasterEggState.unlocked = !!(status && status.ok && status.unlocked);
-    return loginEasterEggState.unlocked;
-  })().finally(function () { loginEasterEggStatusPromise = null; });
-  return loginEasterEggStatusPromise;
+  loginEasterEggState.ready = true;
+  loginEasterEggState.unlocked = true;
+  return true;
 }
 
 function loginEasterEggAllowsStartupGuide() {
-  return loginEasterEggState.ready && loginEasterEggState.unlocked;
+  return true;
 }
 
 function setLoginEasterEggMode(locked) {
   var modal = document.getElementById('login-modal');
-  if (!modal) return;
-  modal.classList.toggle('login-easter-egg-locked', !!locked);
+  if (modal) modal.classList.remove('login-easter-egg-locked');
   var gate = document.getElementById('login-easter-egg-gate');
-  if (gate) gate.setAttribute('aria-hidden', locked ? 'false' : 'true');
+  if (gate) gate.setAttribute('aria-hidden', 'true');
 }
 
 function bindLoginEasterEggGate() {
-  var input = document.getElementById('login-easter-egg-input');
-  var shell = input && input.closest ? input.closest('.login-easter-input-shell') : null;
-  if (!input || input.__loginEasterEggBound) return;
-  input.__loginEasterEggBound = true;
-  input.addEventListener('compositionstart', function () {
-    clearLoginEasterEggFocusRetries();
-    loginEasterEggState.composing = true;
-  });
-  input.addEventListener('compositionend', function (event) {
-    loginEasterEggState.composing = false;
-    handleLoginEasterEggInput(event);
-  });
-  input.addEventListener('beforeinput', function (event) {
-    clearLoginEasterEggFocusRetries();
-    if (!loginEasterEggState.prefixLocked || !/^delete/.test(String(event.inputType || ''))) return;
-    if ((input.selectionStart || 0) <= 2 && (input.selectionEnd || 0) <= 2) event.preventDefault();
-  });
-  input.addEventListener('input', handleLoginEasterEggInput);
-  input.addEventListener('keydown', function (event) {
-    clearLoginEasterEggFocusRetries();
-    if (event.isComposing || loginEasterEggState.composing || event.keyCode === 229) return;
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      validateLoginEasterEggValue();
-    }
-  });
-  if (shell) {
-    shell.addEventListener('pointerdown', function () {
-      clearLoginEasterEggFocusRetries();
-      window.requestAnimationFrame(function () { focusLoginEasterEggInput('wish-pointerdown-frame'); });
-    });
-    shell.addEventListener('click', function () { focusLoginEasterEggInput('wish-click'); });
-  }
-  var cinematic = document.getElementById('login-easter-unlock-cinematic');
-  if (cinematic && !cinematic.__loginEasterEggBound) {
-    cinematic.__loginEasterEggBound = true;
-    cinematic.addEventListener('keydown', function (event) {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      dismissLoginEasterEggCinematic();
-    });
-  }
+  return;
 }
 
 async function prepareLoginEasterEggGate() {
-  bindLoginEasterEggGate();
-  var unlocked = await ensureLoginEasterEggStatus(false);
-  setLoginEasterEggMode(!unlocked);
-  if (!unlocked) {
-    restoreLoginEasterEggInputSurface(false);
-    window.setTimeout(function () {
-      if (loginEasterEggState.revealed || loginEasterEggState.cinematicActive) return;
-      var trigger = document.getElementById('login-easter-eye-trigger');
-      if (trigger) trigger.focus({ preventScroll: true });
-    }, 220);
-  }
-  return unlocked;
+  setLoginEasterEggMode(false);
+  return true;
 }
+
+
 
 function replayLoginEasterEggClass(node, className) {
   if (!node) return;

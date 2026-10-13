@@ -665,6 +665,8 @@ class LocalMusicLibrary {
       if (!kind || !/^[a-f0-9]{24}$/.test(id)) return null;
       const record = this.records.get(id);
       if (!record) return null;
+      const cap = url.searchParams.get('cap');
+      if (this.mediaToken && (!cap || cap !== this.mediaToken)) return null;
       const filePath = kind === 'audio' ? record.audioPath : record.coverPath;
       if (!filePath) return null;
       if (kind === 'audio' && !supportedAudioPath(filePath)) return null;

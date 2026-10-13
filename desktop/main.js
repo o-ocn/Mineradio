@@ -18,6 +18,7 @@ const { BuiltInPlaylistLibrary } = require('./built-in-playlist-library');
 const { syncLocalM3uPlaylists } = require('./local-playlist-sync');
 const { WallpaperEngineRuntime } = require('./wallpaper-engine-runtime');
 const { FullDesktopModeRuntime } = require('./full-desktop-mode-runtime');
+const { LastFmService } = require('./lastfm-service');
 const {
   LoginEasterEggGate,
   LOGIN_EASTER_EGG_GATE_VERSION,
@@ -148,7 +149,7 @@ const STARTUP_QA_USER_DATA_PATH = (() => {
 const PORTABLE_USER_DATA_PATH = process.env.MINERADIO_USER_DATA_PATH
   ? path.resolve(process.env.MINERADIO_USER_DATA_PATH)
   : path.resolve(__dirname, '..', 'data');
-const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || PORTABLE_USER_DATA_PATH;
+const STABLE_USER_DATA_PATH = STARTUP_QA_USER_DATA_PATH || PORTABLE_USER_DATA_PATH || path.join(app.getPath('appData'), APP_NAME);
 fs.mkdirSync(STABLE_USER_DATA_PATH, { recursive: true });
 app.setPath('userData', STABLE_USER_DATA_PATH);
 const INITIAL_CACHE_SETTINGS = ensureCacheDirectories(readCacheSettings());
@@ -166,6 +167,7 @@ process.env.MINERADIO_NATIVE_TEMP_DIR = NATIVE_HELPER_TEMP_PATH;
 systemMemory.setNativeTempPath(NATIVE_HELPER_TEMP_PATH);
 const localMusicLibrary = new LocalMusicLibrary({ userDataPath: STABLE_USER_DATA_PATH });
 const builtInPlaylistLibrary = new BuiltInPlaylistLibrary({ userDataPath: STABLE_USER_DATA_PATH });
+const lastFmService = new LastFmService({ userDataPath: STABLE_USER_DATA_PATH });
 const localMusicImportCapabilities = new Map();
 const wallpaperEngineLibrary = new WallpaperEngineLibrary({ userDataPath: STABLE_USER_DATA_PATH });
 const wallpaperEngineRuntime = new WallpaperEngineRuntime({
@@ -3309,15 +3311,7 @@ function loginEasterEggLockedResult() {
 }
 
 async function initializeLoginEasterEggGate() {
-  const status = await loginEasterEggGate.initialize(() => clearAllProviderLoginState('startup-gate'));
-  if (status.resetPerformed) {
-    console.log('[LoginEasterEgg] first-run login credentials reset', {
-      gateVersion: LOGIN_EASTER_EGG_GATE_VERSION,
-      ok: status.resetComplete,
-      error: status.error || '',
-    });
-  }
-  return status;
+  return loginEasterEggGate.publicStatus();
 }
 
 async function clearAllProviderLoginState(reason) {
@@ -4847,7 +4841,6 @@ ipcMain.handle('mineradio-login-easter-egg-reset', async (event) => {
 });
 
 ipcMain.handle('netease-music-open-login', async (event) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openNeteaseMusicLoginWindow(getSenderWindow(event));
 });
 
@@ -4856,7 +4849,6 @@ ipcMain.handle('netease-music-clear-login', async () => {
 });
 
 ipcMain.handle('qq-music-open-login', async (event, options) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openQQMusicLoginWindow(getSenderWindow(event), options || {});
 });
 
@@ -4865,7 +4857,6 @@ ipcMain.handle('qq-music-clear-login', async () => {
 });
 
 ipcMain.handle('kugou-music-open-login', async (event, options) => {
-  if (!loginEasterEggGate.isUnlocked()) return loginEasterEggLockedResult();
   return openKugouMusicLoginWindow(getSenderWindow(event), options || {});
 });
 
@@ -4889,6 +4880,39 @@ ipcMain.handle('mineradio-open-update-page', async (event, value) => {
   } catch (e) {
     return { ok: false, error: e.message || 'OPEN_UPDATE_PAGE_FAILED' };
   }
+});
+
+// Last.fm 官方 API 集成 Handlers
+ipcMain.handle('mineradio-lastfm-get-config', async () => {
+  return lastFmService.getConfig();
+});
+
+ipcMain.handle('mineradio-lastfm-save-config', async (_event, config) => {
+  return lastFmService.saveConfig(config || {});
+});
+
+ipcMain.handle('mineradio-lastfm-get-auth-url', async () => {
+  return { ok: true, url: lastFmService.getAuthUrl() };
+});
+
+ipcMain.handle('mineradio-lastfm-create-session', async (_event, token) => {
+  return lastFmService.createSession(token);
+});
+
+ipcMain.handle('mineradio-lastfm-now-playing', async (_event, trackInfo) => {
+  return lastFmService.updateNowPlaying(trackInfo || {});
+});
+
+ipcMain.handle('mineradio-lastfm-scrobble', async (_event, trackInfo) => {
+  return lastFmService.scrobble(trackInfo || {});
+});
+
+ipcMain.handle('mineradio-lastfm-get-similar', async (_event, trackInfo) => {
+  return lastFmService.getSimilarTracks(trackInfo || {});
+});
+
+ipcMain.handle('mineradio-lastfm-get-recent', async (_event, options) => {
+  return lastFmService.getRecentTracks(options || {});
 });
 
 ipcMain.handle('mineradio-restart-app', async () => {

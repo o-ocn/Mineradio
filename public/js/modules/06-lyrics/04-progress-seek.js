@@ -196,6 +196,7 @@ function bindPlaybackProgressEvents(audioEl) {
   });
   audioEl.addEventListener('timeupdate', function () {
     if (typeof tickCuefieldAutoMix === 'function') tickCuefieldAutoMix();
+    if (typeof onLastFmTimeUpdate === 'function') onLastFmTimeUpdate(audioEl.currentTime, audioEl.duration);
   });
   ['play', 'playing', 'pause', 'ended', 'emptied', 'abort', 'error'].forEach(function (name) {
     audioEl.addEventListener(name, function () {
@@ -209,6 +210,11 @@ function bindPlaybackProgressEvents(audioEl) {
       if (name === 'ended' && audioEl === audio && playbackTransitionHasAudibleNextDeck()) return;
       syncPlaybackStateFromAudioEvent(name);
       saveLastPlaybackSnapshot(name === 'pause' || name === 'ended', name);
+      if (name === 'playing' || name === 'play') {
+        if (typeof onLastFmTrackStart === 'function' && playQueue && currentIdx >= 0) {
+          onLastFmTrackStart(playQueue[currentIdx]);
+        }
+      }
     });
   });
   ['error', 'stalled'].forEach(function (name) {

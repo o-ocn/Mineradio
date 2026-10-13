@@ -158,84 +158,123 @@
       </div>
     </div>
 
-    <!-- 音乐 Home：极简本地音乐与 Last.fm 看板 -->
+    <!-- 音乐 Home：极简本地音乐优先版 V1 (四核心模块 + 发现新歌) -->
     <section id="empty-home" aria-label="Mineradio 音乐首页">
       <div class="empty-home-shell">
-        <div class="home-hero" aria-live="polite" style="display:none">
-          <input id="home-dashboard-video-input" type="file" accept=".mp4,video/mp4" hidden aria-hidden="true">
-        </div>
+        <input id="home-dashboard-video-input" type="file" accept=".mp4,video/mp4" hidden aria-hidden="true">
 
-        <div class="home-grid home-quick-grid" aria-label="常用音乐入口">
-          <button class="home-card home-card-featured" data-home-tone="search" type="button"
-            onclick="resumeHomeDashboardPlayback()">
-            <div class="home-card-label">CONTINUE</div>
-            <div class="home-card-title">继续播放</div>
-            <div class="home-card-sub">从当前队列或最近播放继续</div>
-            <div class="home-card-art"></div>
-          </button>
-          <button class="home-card home-card-quick" data-home-tone="library" type="button"
-            onclick="openHomeDashboardLibrary()">
-            <div class="home-card-label">LIBRARY</div>
-            <div class="home-card-title">音乐库</div>
-            <div class="home-card-sub">歌单、本地音乐与播放列表</div>
-            <div class="home-card-art"></div>
-          </button>
-          <button class="home-card home-card-quick" data-home-tone="playlist" type="button"
-            onclick="playHomeRecent()">
-            <div class="home-card-label">RECENT</div>
-            <div class="home-card-title">最近播放</div>
-            <div class="home-card-sub">播放过的歌曲会出现在这里</div>
-            <div class="home-card-art"></div>
-          </button>
-        </div>
-
-        <div class="home-rail home-insight-rail">
-          <div id="home-insight-dock" class="home-insight-dock" aria-label="今日聆听与 Last.fm">
-            <section class="home-insight-card home-listen-card" aria-labelledby="home-listen-heading">
-              <div class="home-insight-head">
-                <div id="home-listen-heading" class="home-insight-kicker">LISTENING TODAY · 今日聆听</div>
-                <button class="home-insight-link" type="button" onclick="openHomeInsight()">查看偏好</button>
-              </div>
-              <div class="home-listen-metrics">
-                <div class="home-listen-metric"><strong id="home-today-time" class="home-listen-value">0 分钟</strong><span
-                    class="home-listen-label">聆听时长</span></div>
-                <div class="home-listen-metric"><strong id="home-today-count" class="home-listen-value">0 首</strong><span
-                    class="home-listen-label">今日歌曲</span></div>
-                <div class="home-listen-metric"><strong id="home-today-artist" class="home-listen-value">等待记录</strong><span
-                    id="home-today-streak" class="home-listen-label">开始播放后生成</span></div>
-              </div>
-            </section>
-
-            <button id="home-next-card" class="home-insight-card home-next-card" type="button"
-              onclick="playHomeNextFromDock()" aria-label="播放下一首">
-              <span id="home-next-cover" class="home-next-cover" aria-hidden="true"></span>
-              <span class="home-next-copy">
-                <span class="home-insight-kicker">NEXT UP · 接下来播放</span>
-                <span id="home-next-title" class="home-next-title">队列里还没有歌曲</span>
-                <span id="home-next-sub" class="home-next-sub">点击打开音乐库</span>
-              </span>
-              <span class="home-next-arrow" aria-hidden="true">›</span>
-            </button>
-
-            <section id="home-lastfm-card" class="home-insight-card home-lastfm-card" aria-label="Last.fm 音乐推荐与听歌画像">
-              <div class="home-insight-head">
-                <div class="home-insight-kicker">LAST.FM · 音乐探索</div>
-                <button class="home-insight-link" type="button" onclick="openLastFmSettingsModal()">服务设置</button>
-              </div>
-              <div id="home-lastfm-content" class="home-lastfm-content">
-                <div id="home-lastfm-status" class="home-lastfm-status">可记录听歌历史并推荐相似歌曲</div>
-                <div id="home-lastfm-recommend-list" class="home-lastfm-recommend-list"></div>
-                <div class="home-lastfm-btn-bar">
-                  <button id="home-lastfm-action-btn" class="home-insight-link" type="button" onclick="refreshHomeLastFmSimilar()">探索相似音乐</button>
-                </div>
-              </div>
-            </section>
+        <!-- 顶部轻量操作栏：右上角发现新歌入口 -->
+        <div class="home-top-bar">
+          <div class="home-top-left">
+            <span class="home-brand-badge">MINERADIO</span>
           </div>
+          <div class="home-top-actions">
+            <button id="home-discover-btn" class="home-glass-pill-btn" type="button" onclick="openHomeDiscoverNewMusic()" title="探索与发现新歌">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+              </svg>
+              <span>发现新歌</span>
+            </button>
+          </div>
+        </div>
 
-          <div class="home-legacy-rail" aria-hidden="true">
-            <div id="home-rail-title"></div>
-            <div id="home-rail-note"></div>
-            <div id="home-tile-row" class="home-tile-row"></div>
+        <!-- 首页两排两列不对称网格 (58% : 42%) -->
+        <div class="home-v1-grid">
+          <!-- 第一排左侧 (58%)：MY PLAYLISTS · 我的常用歌单 -->
+          <section class="home-v1-block home-block-playlists" aria-label="我的常用歌单">
+            <div class="home-block-header">
+              <div class="home-block-title-group">
+                <span class="home-block-kicker">MY PLAYLISTS</span>
+                <span class="home-block-title">我的常用歌单</span>
+              </div>
+              <button class="home-block-link-btn" type="button" onclick="openPlaylistPanelTab('playlists', true)">全部歌单 ›</button>
+            </div>
+            <div id="home-playlists-content" class="home-playlists-content"></div>
+          </section>
+
+          <!-- 第一排右侧 (42%)：LIBRARY · 本地音乐库 -->
+          <section class="home-v1-block home-block-library" aria-label="本地音乐库" onclick="openHomeDashboardLibrary()">
+            <div class="home-block-header">
+              <div class="home-block-title-group">
+                <span class="home-block-kicker">LIBRARY</span>
+                <span class="home-block-title">本地音乐库</span>
+              </div>
+              <button class="home-block-link-btn" type="button" onclick="event.stopPropagation(); openHomeDashboardLibrary()">浏览全部 ›</button>
+            </div>
+            <div id="home-library-content" class="home-library-body">
+              <div class="home-lib-primary-stat">
+                <strong id="home-local-total-count" class="home-lib-count">0</strong>
+                <span class="home-lib-unit">首本地歌曲</span>
+              </div>
+              <div class="home-lib-sub-metrics">
+                <span class="home-lib-metric-pill" id="home-local-artists-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span id="home-local-artist-count">0</span> 歌手</span>
+                <span class="home-lib-metric-pill" id="home-local-albums-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg><span id="home-local-album-count">0</span> 专辑</span>
+                <span class="home-lib-metric-pill" id="home-local-playlists-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg><span id="home-local-playlist-count">0</span> 歌单</span>
+              </div>
+              <div class="home-lib-footer-hint">
+                <span>无需登录，双击歌单或直接播放本地歌曲</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 第二排左侧 (58%)：RECENT · 最近播放 -->
+          <section class="home-v1-block home-block-recent" aria-label="最近播放">
+            <div class="home-block-header">
+              <div class="home-block-title-group">
+                <span class="home-block-kicker">RECENT</span>
+                <span class="home-block-title">最近播放</span>
+              </div>
+              <button class="home-block-link-btn" type="button" onclick="openHomeRecentFull()">全部历史 ›</button>
+            </div>
+            <div id="home-recent-content" class="home-recent-content"></div>
+          </section>
+
+          <!-- 第二排右侧 (42%)：NEXT UP · 接下来播放 -->
+          <section class="home-v1-block home-block-next" aria-label="接下来播放">
+            <div class="home-block-header">
+              <div class="home-block-title-group">
+                <span class="home-block-kicker">NEXT UP</span>
+                <span class="home-block-title">接下来播放</span>
+              </div>
+              <button class="home-block-link-btn" type="button" onclick="openPlaylistPanelTab('queue', true)">当前队列 ›</button>
+            </div>
+            <div id="home-next-content" class="home-next-body">
+              <button id="home-next-card" class="home-next-card-btn" type="button" onclick="playHomeNextFromDock()" aria-label="播放下一首">
+                <span id="home-next-cover" class="home-next-cover-box" aria-hidden="true"></span>
+                <span class="home-next-meta">
+                  <span id="home-next-title" class="home-next-title-text">队列里还没有歌曲</span>
+                  <span id="home-next-sub" class="home-next-sub-text">点击打开音乐库</span>
+                </span>
+                <span class="home-next-play-btn" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                    <polygon points="6 4 20 12 6 20 6 4" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <!-- 发现新歌轻量弹窗 (Last.fm 推荐对接) -->
+        <div id="home-discover-modal" class="modal-mask" role="dialog" aria-modal="true" aria-hidden="true" style="display:none">
+          <div class="modal home-discover-modal-box">
+            <div class="home-discover-head">
+              <div class="home-discover-title-wrap">
+                <span class="home-insight-kicker">LAST.FM · 音乐探索</span>
+                <h3 class="home-discover-modal-title">发现新歌与相似推荐</h3>
+              </div>
+              <div class="home-discover-head-actions">
+                <button class="fx-mini-btn ghost" type="button" onclick="openLastFmSettingsModal()">服务设置</button>
+                <button class="modal-close-btn" type="button" onclick="closeHomeDiscoverModal()">×</button>
+              </div>
+            </div>
+            <div id="home-lastfm-status" class="home-lastfm-status">可记录听歌历史并推荐相似歌曲</div>
+            <div id="home-lastfm-recommend-list" class="home-lastfm-recommend-list"></div>
+            <div class="home-discover-footer">
+              <button id="home-lastfm-action-btn" class="fx-mini-btn ghost" type="button" onclick="refreshHomeLastFmSimilar()">探索相似音乐</button>
+              <button class="fx-mini-btn" type="button" onclick="closeHomeDiscoverModal()">完成</button>
+            </div>
           </div>
         </div>
       </div>

@@ -426,6 +426,7 @@ function homeDashboardSongCover(song, size) {
 
 function homeDashboardLocalSongs() {
   var pool = [];
+  if (Array.isArray(persistentLocalLibraryTracks)) pool = pool.concat(persistentLocalLibraryTracks);
   if (Array.isArray(playQueue)) pool = pool.concat(playQueue);
   if (Array.isArray(playlist)) pool = pool.concat(playlist);
   if (Array.isArray(userPlaylists)) {
@@ -435,15 +436,16 @@ function homeDashboardLocalSongs() {
   }
   var seen = Object.create(null);
   return pool.filter(function (song) {
-    if (!song || song.type !== 'local') return false;
+    if (!song || (song.type !== 'local' && !song.localPath && !song.localKey && !song.localUrl)) return false;
     var key = '';
     try { key = queueItemKey(song); } catch (_error) { }
-    key = key || song.localPath || song.id || ((song.name || song.title || '') + '|' + (song.artist || ''));
+    key = key || song.localPath || song.localKey || song.id || ((song.name || song.title || '') + '|' + (song.artist || ''));
     if (!key || seen[key]) return false;
     seen[key] = true;
     return true;
   });
 }
+
 
 function homeDashboardSetStableBackgroundImage(element, src) {
   if (!element) return;
@@ -747,30 +749,288 @@ function playHomeDashboardDiscoverySong(index) {
   })).catch(function (error) { console.warn('[HomeDashboardDiscovery]', error); });
 }
 
-function renderHomeInsightDock() {
-  if (!document.getElementById('home-insight-dock')) return;
-  var metrics = homeDashboardTodayListenMetrics();
-  var time = document.getElementById('home-today-time');
-  var count = document.getElementById('home-today-count');
-  var artist = document.getElementById('home-today-artist');
-  var streak = document.getElementById('home-today-streak');
-  if (time) time.textContent = homeDashboardListenDurationText(metrics.listenMs);
-  if (count) count.textContent = metrics.songCount + ' 首';
-  if (artist) artist.textContent = metrics.topArtist || '等待记录';
-  if (streak) streak.textContent = metrics.streak ? ('连续聆听 ' + metrics.streak + ' 天') : '开始播放后生成';
+// ============================================================
+// 首页核心模块 V1 实现 (歌单、本地库、最近播放、下首播放、发现新歌)
+// ============================================================
 
+var HOME_PINNED_PLAYLISTS_KEY = 'mineradio-pinned-playlists-v1';
+var homeRecentCachedList = [];
+var homeLibraryAutoFetchBusy = false;
+
+function getPinnedPlaylistIds() {
+  try {
+    var raw = JSON.parse(localStorage.getItem(HOME_PINNED_PLAYLISTS_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch (_e) {
+    return [];
+  }
+}
+
+function setPinnedPlaylistIds(ids) {
+  try {
+    localStorage.setItem(HOME_PINNED_PLAYLISTS_KEY, JSON.stringify(ids || []));
+  } catch (_e) {}
+}
+
+function getHomePlaylistsList() {
+  var pool = [];
+  var map = Object.create(null);
+  function add(p) {
+    if (!p || !p.id) return;
+    var key = String(p.id);
+    if (map[key]) return;
+    map[key] = true;
+    pool.push(p);
+  }
+  (Array.isArray(builtInPlaylists) ? builtInPlaylists : []).forEach(add);
+  (Array.isArray(userPlaylists) ? userPlaylists : []).forEach(add);
+  return pool;
+}
+
+function getHomeTopPlaylists() {
+  var all = getHomePlaylistsList();
+  if (!all.length) return [];
+  var pinnedIds = getPinnedPlaylistIds();
+  var result = [];
+  var seen = Object.create(null);
+
+  pinnedIds.forEach(function (id) {
+    var found = all.find(function (item) { return String(item.id) === String(id); });
+    if (found && !seen[String(found.id)]) {
+      seen[String(found.id)] = true;
+      result.push(found);
+    }
+  });
+
+  for (var i = 0; i < all.length && result.length < 4; i++) {
+    var p = all[i];
+    if (!seen[String(p.id)]) {
+      seen[String(p.id)] = true;
+      result.push(p);
+    }
+  }
+  return result.slice(0, 4);
+}
+
+function playHomePlaylistDirect(id, title) {
+  homeForcedOpen = false;
+  homeSuppressed = false;
+  if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(false);
+  if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility();
+  if (typeof loadPlaylistIntoQueueById === 'function') {
+    loadPlaylistIntoQueueById(id, true, title || '');
+  }
+}
+
+function openHomePlaylistDetailDirect(provider, id, title) {
+  homeForcedOpen = false;
+  homeSuppressed = false;
+  if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(false);
+  if (typeof openPlaylistPanelTab === 'function') {
+    openPlaylistPanelTab('playlists', true);
+  }
+  if (typeof openPlaylistPanelDetail === 'function') {
+    openPlaylistPanelDetail(provider || 'mineradio', id, title);
+  }
+}
+
+function renderHomePlaylistsBlock() {
+  var container = document.getElementById('home-playlists-content');
+  if (!container) return;
+  var items = getHomeTopPlaylists();
+  if (!items.length) {
+    container.innerHTML = '<div class="home-playlists-empty" onclick="openHomeDashboardLibrary()">' +
+      '<strong>暂无歌单</strong><span>点击打开音乐库，创建或浏览本地歌单</span></div>';
+    return;
+  }
+  container.innerHTML = items.map(function (pl) {
+    var count = Number(pl.trackCount || (pl.songs && pl.songs.length) || 0);
+    var countText = count > 0 ? (count + ' 首') : '本地歌单';
+    var cover = pl.cover || (pl.songs && pl.songs[0] && pl.songs[0].cover) || '';
+    if (!cover) {
+      cover = homeDashboardGeneratedCover(pl.name, '歌单', 'playlist');
+    }
+    var provider = pl.provider || pl.source || 'mineradio';
+    var safeId = escHtml(String(pl.id || ''));
+    var safeName = escHtml(pl.name || '未命名歌单');
+    return '<div class="home-pl-card" onclick="openHomePlaylistDetailDirect(\'' + escHtml(provider) + '\', \'' + safeId + '\', \'' + safeName + '\')">' +
+      '<div class="home-pl-art-wrap">' +
+        '<img class="home-pl-art-img" src="' + escHtml(cover) + '" alt="" loading="lazy" onerror="this.style.opacity=0.3">' +
+        '<div class="home-pl-play-overlay">' +
+          '<button class="home-pl-play-btn" type="button" onclick="event.stopPropagation(); playHomePlaylistDirect(\'' + safeId + '\', \'' + safeName + '\')" title="播放该歌单">' +
+            '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="home-pl-name" title="' + safeName + '">' + safeName + '</div>' +
+      '<div class="home-pl-meta">' + escHtml(countText) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function getHomeLibraryStats() {
+  var localTracks = [];
+  if (Array.isArray(persistentLocalLibraryTracks) && persistentLocalLibraryTracks.length) {
+    localTracks = persistentLocalLibraryTracks;
+  } else {
+    localTracks = homeDashboardLocalSongs();
+  }
+
+  var songKeys = Object.create(null);
+  var artists = Object.create(null);
+  var albums = Object.create(null);
+  var validSongCount = 0;
+
+  localTracks.forEach(function (song) {
+    if (!song) return;
+    var key = song.localPath || song.localKey || song.id || ((song.name || song.title || '') + '|' + (song.artist || ''));
+    if (!songKeys[key]) {
+      songKeys[key] = true;
+      validSongCount++;
+      var artist = (song.artist || song.singer || '').trim();
+      if (artist && artist !== '未知歌手') {
+        artist.split(/\s*[\/&,、]\s*/).forEach(function (a) {
+          a = a.trim();
+          if (a) artists[a] = true;
+        });
+      }
+      var album = (song.album || '').trim();
+      if (album && album !== '未知专辑') {
+        albums[album] = true;
+      }
+    }
+  });
+
+  var playlists = getHomePlaylistsList();
+
+  return {
+    songCount: validSongCount,
+    artistCount: Object.keys(artists).length,
+    albumCount: Object.keys(albums).length,
+    playlistCount: playlists.length
+  };
+}
+
+function renderHomeLibraryBlock() {
+  var stats = getHomeLibraryStats();
+  var totalEl = document.getElementById('home-local-total-count');
+  var artistEl = document.getElementById('home-local-artist-count');
+  var albumEl = document.getElementById('home-local-album-count');
+  var plEl = document.getElementById('home-local-playlist-count');
+  if (totalEl) totalEl.textContent = stats.songCount;
+  if (artistEl) artistEl.textContent = stats.artistCount;
+  if (albumEl) albumEl.textContent = stats.albumCount;
+  if (plEl) plEl.textContent = stats.playlistCount;
+}
+
+function ensureHomeLibraryLoaded() {
+  if (homeLibraryAutoFetchBusy) return;
+  if (Array.isArray(persistentLocalLibraryTracks) && persistentLocalLibraryTracks.length) return;
+  if (!window.desktopWindow || typeof window.desktopWindow.listLocalMusicLibrary !== 'function') return;
+  homeLibraryAutoFetchBusy = true;
+  window.desktopWindow.listLocalMusicLibrary().then(function (res) {
+    homeLibraryAutoFetchBusy = false;
+    if (res && res.ok && Array.isArray(res.tracks) && res.tracks.length) {
+      persistentLocalLibraryTracks = res.tracks.map(cloneSong);
+      renderHomeLibraryBlock();
+      renderHomePlaylistsBlock();
+    }
+  }).catch(function () {
+    homeLibraryAutoFetchBusy = false;
+  });
+}
+
+function getHomeRecentSongs(limit) {
+  limit = limit || 4;
+  var history = listenStatsState && Array.isArray(listenStatsState.history) ? listenStatsState.history : [];
+  var seen = Object.create(null);
+  var result = [];
+  for (var i = 0; i < history.length && result.length < limit; i++) {
+    var record = history[i];
+    if (!record) continue;
+    var key = record.key || record.id || ((record.name || '') + '|' + (record.artist || ''));
+    if (!key || seen[key]) continue;
+    seen[key] = true;
+    result.push(record);
+  }
+  return result;
+}
+
+function playHomeRecentIndex(index) {
+  var record = homeRecentCachedList[index];
+  if (!record) return;
+  if (typeof playHomeRecent === 'function') {
+    playHomeRecent(record);
+  }
+}
+
+function renderHomeRecentBlock() {
+  var container = document.getElementById('home-recent-content');
+  if (!container) return;
+  var items = getHomeRecentSongs(4);
+  homeRecentCachedList = items;
+  if (!items.length) {
+    container.innerHTML = '<div class="home-recent-empty"><span>暂无最近播放记录，播放歌曲后在此显示</span></div>';
+    return;
+  }
+  container.innerHTML = items.map(function (song, index) {
+    var cover = song.cover || song.picUrl || '';
+    var safeName = escHtml(song.name || song.title || '未知歌曲');
+    var safeArtist = escHtml(song.artist || song.singer || '未知歌手');
+    return '<div class="home-recent-item" onclick="playHomeRecentIndex(' + index + ')" title="点击播放: ' + safeName + '">' +
+      '<div class="home-recent-cover">' +
+        (cover ? '<img src="' + escHtml(cover) + '" alt="" loading="lazy" onerror="this.style.opacity=0.3">' : '<div class="home-recent-cover-ph"></div>') +
+        '<div class="home-recent-play-overlay">' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><polygon points="6 4 20 12 6 20 6 4"/></svg>' +
+        '</div>' +
+      '</div>' +
+      '<div class="home-recent-info">' +
+        '<div class="home-recent-title">' + safeName + '</div>' +
+        '<div class="home-recent-artist">' + safeArtist + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openHomeRecentFull() {
+  var history = listenStatsState && Array.isArray(listenStatsState.history) ? listenStatsState.history : [];
+  if (!history.length) {
+    if (typeof showToast === 'function') showToast('暂无听歌历史');
+    return;
+  }
+  if (typeof openPlaylistPanelTab === 'function') {
+    openPlaylistPanelTab('queue', true);
+  }
+  if (typeof showToast === 'function') {
+    showToast('已累计记录 ' + history.length + ' 首播放历史');
+  }
+}
+
+function renderHomeNextBlock() {
   var next = homeDashboardNextQueueInfo();
   var song = next.song;
-  var title = document.getElementById('home-next-title');
-  var sub = document.getElementById('home-next-sub');
-  var cover = document.getElementById('home-next-cover');
-  var card = document.getElementById('home-next-card');
-  if (title) title.textContent = song ? (song.name || song.title || '未知歌曲') : '队列里还没有歌曲';
-  if (sub) sub.textContent = song ? (homeDashboardSubtitle(song) || '点击播放') : '点击打开音乐库';
-  var coverUrl = homeDashboardSongCover(song, 220);
-  if (cover) homeDashboardSetStableBackgroundImage(cover, coverUrl);
-  if (card) card.setAttribute('aria-label', song ? ('播放下一首：' + (song.name || song.title || '未知歌曲')) : '打开音乐库');
-  renderHomeDashboardDiscovery();
+  var titleEl = document.getElementById('home-next-title');
+  var subEl = document.getElementById('home-next-sub');
+  var coverEl = document.getElementById('home-next-cover');
+  var cardEl = document.getElementById('home-next-card');
+
+  if (titleEl) {
+    titleEl.textContent = song ? (song.name || song.title || '未知歌曲') : '队列里还没有歌曲';
+  }
+  if (subEl) {
+    subEl.textContent = song ? (homeDashboardSubtitle(song) || '点击播放') : '点击打开音乐库';
+  }
+  if (coverEl) {
+    var coverUrl = song ? homeDashboardSongCover(song, 220) : '';
+    homeDashboardSetStableBackgroundImage(coverEl, coverUrl);
+  }
+  if (cardEl) {
+    cardEl.setAttribute('aria-label', song ? ('播放下一首：' + (song.name || song.title || '未知歌曲')) : '打开音乐库');
+  }
+}
+
+function renderHomeInsightDock() {
+  renderHomeNextBlock();
 }
 
 function playHomeNextFromDock() {
@@ -802,18 +1062,37 @@ function playHomeNextFromDock() {
 }
 
 function openHomeDashboardLibrary() {
-  var loggedIn = typeof hasAnyPlatformLogin === 'function' && hasAnyPlatformLogin()
-    || homeDiscoverState && homeDiscoverState.loggedIn;
-  if (loggedIn && typeof openHomeLibrary === 'function') {
-    openHomeLibrary();
-    return;
-  }
   homeForcedOpen = false;
   homeSuppressed = false;
   if (typeof setHomeControlsLocked === 'function') setHomeControlsLocked(false);
-  if (typeof updateEmptyHomeVisibility === 'function') updateEmptyHomeVisibility();
-  if (typeof openUploadPanel === 'function') openUploadPanel();
+  if (typeof openPlaylistPanelTab === 'function') {
+    openPlaylistPanelTab('playlists', true);
+  }
+  if (typeof refreshUserPlaylists === 'function') {
+    refreshUserPlaylists(false);
+  }
 }
+
+function openHomeDiscoverNewMusic() {
+  var modal = document.getElementById('home-discover-modal');
+  if (!modal) return;
+  if (typeof updateHomeLastFmStatus === 'function') updateHomeLastFmStatus();
+  modal.style.display = 'flex';
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  if (typeof refreshHomeLastFmSimilar === 'function') {
+    refreshHomeLastFmSimilar();
+  }
+}
+
+function closeHomeDiscoverModal() {
+  var modal = document.getElementById('home-discover-modal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+}
+
 
 function openHomeDashboardCharts() {
   openHomePlatformRecommendations('netease');
@@ -1222,16 +1501,20 @@ function scheduleHomeDashboardRefresh() {
   homeDashboardRefreshTimer = setTimeout(function () {
     homeDashboardRefreshTimer = null;
     if (!emptyHomeActive || document.hidden) return;
-    homeDashboardUpdateClock();
-    renderHomeInsightDock();
+    renderHomeNextBlock();
+    renderHomeRecentBlock();
+    renderHomeLibraryBlock();
     scheduleHomeDashboardRefresh();
-  }, 15000);
+  }, 12000);
 }
 
 function renderHomeDashboard() {
   renderHomeDashboardHero();
-  renderHomeDashboardQuickCards();
-  renderHomeInsightDock();
+  renderHomePlaylistsBlock();
+  renderHomeLibraryBlock();
+  renderHomeRecentBlock();
+  renderHomeNextBlock();
+  ensureHomeLibraryLoaded();
   scheduleHomeDashboardRefresh();
 }
 

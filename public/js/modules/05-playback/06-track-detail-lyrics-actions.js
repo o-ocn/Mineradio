@@ -22,6 +22,42 @@ function detailRow(label, value) {
   value = value == null || value === '' ? '未知' : value;
   return '<div class="detail-k">' + escHtml(label) + '</div><div class="detail-v">' + escHtml(String(value)) + '</div>';
 }
+function detailRowHtml(label, htmlValue) {
+  return '<div class="detail-k">' + escHtml(label) + '</div><div class="detail-v">' + (htmlValue || '') + '</div>';
+}
+function renderModalSourceQualityControls(song) {
+  song = song || (typeof currentControlSong === 'function' ? currentControlSong() : null) || (typeof currentCoverSong === 'function' ? currentCoverSong() : null);
+  var sourceTag = typeof songSourceTagHtml === 'function' ? songSourceTagHtml(song, { switcher: true }) : '';
+  var provider = typeof currentPlaybackQualityProvider === 'function' ? currentPlaybackQualityProvider() : 'netease';
+  var effectiveQuality = typeof effectivePlaybackQualityForSong === 'function' && typeof getProviderPlaybackQuality === 'function'
+    ? effectivePlaybackQualityForSong(song, provider, getProviderPlaybackQuality(provider))
+    : 'standard';
+  var shortQuality = typeof playbackQualityShortLabel === 'function' ? playbackQualityShortLabel(effectiveQuality, provider) : 'SQ';
+  return '<div class="detail-source-quality-row">' +
+    '<span id="modal-source-tag-wrap">' + sourceTag + '</span>' +
+    '<div id="modal-quality-control" class="quality-control control-quality-chip">' +
+      '<button id="modal-quality-btn" class="ctrl-btn quality-pill" type="button" onclick="toggleQualityPanel(event)" title="切换音质"><span id="modal-quality-btn-label">' + escHtml(shortQuality) + '</span></button>' +
+      '<div class="quality-popover" onclick="event.stopPropagation()">' +
+        '<div id="modal-quality-option-list" class="quality-option-list"></div>' +
+      '</div>' +
+    '</div>' +
+    '<span class="detail-source-note" id="detail-source-note">' + escHtml(songSourceLabel(song)) + '</span>' +
+  '</div>';
+}
+function updateTrackDetailModalBadges(song) {
+  var modal = document.getElementById('track-detail-modal');
+  if (!modal || modal.style.display === 'none') return;
+  song = song || (typeof currentControlSong === 'function' ? currentControlSong() : null) || (typeof currentCoverSong === 'function' ? currentCoverSong() : null);
+  if (!song) return;
+  var wrap = document.getElementById('modal-source-tag-wrap');
+  if (wrap && typeof songSourceTagHtml === 'function') {
+    wrap.innerHTML = songSourceTagHtml(song, { switcher: true });
+  }
+  var note = document.getElementById('detail-source-note');
+  if (note && typeof songSourceLabel === 'function') {
+    note.textContent = songSourceLabel(song);
+  }
+}
 function currentArtistNames(song) {
   var text = String((song && song.artist) || '').trim();
   if (!text) return [];
@@ -432,6 +468,9 @@ function bindTrackDetailScrollers() {
   if (body) body.querySelectorAll('.detail-scroll').forEach(bindSmoothWheelScroll);
 }
 function closeTrackDetailModal() {
+  if (typeof closeControlSourceSwitcher === 'function') closeControlSourceSwitcher();
+  var mq = document.getElementById('modal-quality-control');
+  if (mq) mq.classList.remove('open');
   closeGsapModal(document.getElementById('track-detail-modal'), function () {
     detailCommentSong = null;
     detailCommentSubmitBusy = false;
@@ -465,7 +504,7 @@ function openTrackDetailModal(type, songOverride) {
       album: { name: albumTitle, cover: cover, artist: song.artist || '', id: song.albumId || song.album_id || '', albumMid: song.albumMid || song.albummid || '' },
       songs: [],
     };
-    heading.textContent = '专辑详情';
+    heading.textContent = '歌曲详情';
     body.innerHTML =
       '<div class="detail-hero">' + coverHtml +
       '<div style="min-width:0;flex:1"><div class="detail-title" id="album-detail-title">' + escHtml(albumTitle) + '</div>' +
@@ -475,7 +514,7 @@ function openTrackDetailModal(type, songOverride) {
       detailRow('当前歌曲', title) +
       detailRow('专辑', albumTitle) +
       detailRow('歌手', song.artist || '未知歌手') +
-      detailRow('来源', songSourceLabel(song)) +
+      detailRowHtml('来源与音质', renderModalSourceQualityControls(song)) +
       '</div>' +
       '<div class="detail-chip-row">' +
       '<span class="detail-chip">' + escHtml(songSourceLabel(song)) + '</span>' +
@@ -609,7 +648,7 @@ function openTrackDetailModal(type, songOverride) {
       detailRow('歌手', song.artist || '未知歌手') +
       detailRow('专辑', song.album || (song.type === 'podcast' ? (song.radioName || 'Podcast') : '未知')) +
       detailRow('时长', songDurationLabel(song)) +
-      detailRow('来源', songSourceLabel(song)) +
+      detailRowHtml('来源与音质', renderModalSourceQualityControls(song)) +
       detailRow('歌词源', lyricSourceMode === 'custom' ? '自定义歌词' : (lyricsTimingSource === 'fallback' ? '占位歌词' : '原词')) +
       '</div>' +
       '<div class="detail-chip-row">' +
@@ -626,6 +665,7 @@ function openTrackDetailModal(type, songOverride) {
     }
   }
   bindTrackDetailScrollers();
+  if (typeof updatePlaybackQualityUi === 'function') updatePlaybackQualityUi();
   openGsapModal(document.getElementById('track-detail-modal'));
 }
 function openArtistDetailForSong(song) {

@@ -727,7 +727,8 @@ function setImmersiveMode(on) {
   showToast('已退出全沉浸式');
 }
 
-function toggleImmersiveMode() {
+function toggleImmersiveMode(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
   setImmersiveMode(!immersiveMode);
 }
 

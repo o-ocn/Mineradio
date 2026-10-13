@@ -554,6 +554,7 @@ function updateControlTrackInfo(song) {
   if (artist) artist.textContent = song.artist || '';
   updatePlaybackQualityUi();
   if (typeof updateLyricTimingOffsetUi === 'function') updateLyricTimingOffsetUi(song);
+  if (typeof updateTrackDetailModalBadges === 'function') updateTrackDetailModalBadges(song);
 }
 
 function applyCoverCanvas(cv, thumbSrc, opts) {

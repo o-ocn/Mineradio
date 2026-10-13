@@ -1500,7 +1500,8 @@ function animateDesktopWindowRestore() {
   }, 280);
 }
 
-function toggleFullscreen() {
+function toggleFullscreen(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
   var api = window.desktopWindow;
   if (api && api.isDesktop && typeof api.toggleFullscreen === 'function') {
     if (document.fullscreenElement && document.exitFullscreen) {

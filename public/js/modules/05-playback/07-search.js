@@ -502,7 +502,14 @@ function controlSourcePositionSwitcher(anchor) {
   var left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
   el.style.width = width + 'px';
   el.style.left = left + 'px';
-  el.style.bottom = Math.max(18, window.innerHeight - rect.top + 10) + 'px';
+  var popHeight = 240;
+  if (rect.top - popHeight < 20 && rect.bottom + popHeight + 20 < window.innerHeight) {
+    el.style.top = Math.round(rect.bottom + 8) + 'px';
+    el.style.bottom = 'auto';
+  } else {
+    el.style.bottom = Math.max(18, window.innerHeight - rect.top + 10) + 'px';
+    el.style.top = 'auto';
+  }
 }
 function closeControlSourceSwitcher() {
   var el = document.getElementById('control-source-switcher');

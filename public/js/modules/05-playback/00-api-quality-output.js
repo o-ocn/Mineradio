@@ -233,22 +233,29 @@ function updatePlaybackQualityUi() {
   var effectiveQuality = effectivePlaybackQualityForSong(currentSong, provider, currentQuality);
   playbackQuality = currentQuality;
   var label = document.getElementById('quality-btn-label');
+  var modalLabel = document.getElementById('modal-quality-btn-label');
   var btn = document.getElementById('quality-btn');
+  var modalBtn = document.getElementById('modal-quality-btn');
   var list = document.getElementById('quality-option-list');
+  var modalList = document.getElementById('modal-quality-option-list');
   var canUseSvip = provider === 'netease' && hasProviderSvip('netease', loginStatus);
   var displayQuality = provider === 'netease' && effectiveQuality === 'jymaster' && !canUseSvip ? 'hires' : effectiveQuality;
-  if (label) label.textContent = playbackQualityShortLabel(displayQuality, provider);
+  var shortLabel = playbackQualityShortLabel(displayQuality, provider);
+  if (label) label.textContent = shortLabel;
+  if (modalLabel) modalLabel.textContent = shortLabel;
   var qualityProviderTitle = provider === 'spotify' ? 'Spotify 匹配源: ' : (provider === 'qishui' ? '汽水音质: ' : (provider === 'qq' ? 'QQ 音质: ' : (provider === 'kugou' ? '酷狗音质: ' : '网易云音质: ')));
-  if (btn) btn.title = qualityProviderTitle + playbackQualityLabel(displayQuality, provider) +
+  var btnTitle = qualityProviderTitle + playbackQualityLabel(displayQuality, provider) +
     (provider === 'netease' && currentQuality === 'jymaster' && !canUseSvip ? ' · 超清母带需网易云 SVIP' : '');
-  if (btn && runtimeCapQuality) btn.title += ' | 当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
-  if (list) {
-    list.innerHTML = playbackQualityOptions(provider).map(function (item) {
-      var capLocked = playbackQualityAboveCap(item.key, provider, runtimeCapQuality);
-      var locked = !!(item.svip && !canUseSvip) || capLocked;
-      return '<button class="quality-option' + (item.svip ? ' svip-only' : '') + (capLocked ? ' cap-locked' : '') + (locked ? ' locked' : '') + '" data-quality="' + item.key + '" data-svip="' + (item.svip ? '1' : '0') + '" ' + (locked ? 'disabled ' : '') + 'onclick="setPlaybackQuality(\'' + item.key + '\')"><span>' + escHtml(item.title) + '</span><small>' + escHtml(capLocked ? ('当前最高 ' + playbackQualityLabel(runtimeCapQuality, provider)) : item.sub) + '</small></button>';
-    }).join('');
-  }
+  if (runtimeCapQuality) btnTitle += ' | 当前歌曲最高: ' + playbackQualityLabel(runtimeCapQuality, provider);
+  if (btn) btn.title = btnTitle;
+  if (modalBtn) modalBtn.title = btnTitle;
+  var optionsHtml = playbackQualityOptions(provider).map(function (item) {
+    var capLocked = playbackQualityAboveCap(item.key, provider, runtimeCapQuality);
+    var locked = !!(item.svip && !canUseSvip) || capLocked;
+    return '<button class="quality-option' + (item.svip ? ' svip-only' : '') + (capLocked ? ' cap-locked' : '') + (locked ? ' locked' : '') + '" data-quality="' + item.key + '" data-svip="' + (item.svip ? '1' : '0') + '" ' + (locked ? 'disabled ' : '') + 'onclick="setPlaybackQuality(\'' + item.key + '\')"><span>' + escHtml(item.title) + '</span><small>' + escHtml(capLocked ? ('当前最高 ' + playbackQualityLabel(runtimeCapQuality, provider)) : item.sub) + '</small></button>';
+  }).join('');
+  if (list) list.innerHTML = optionsHtml;
+  if (modalList) modalList.innerHTML = optionsHtml;
   document.querySelectorAll('.quality-option').forEach(function (option) {
     var q = normalizePlaybackQualityForProvider(option.dataset.quality, provider);
     var capLocked = playbackQualityAboveCap(q, provider, runtimeCapQuality);
@@ -285,6 +292,8 @@ function setPlaybackQuality(value) {
   updatePlaybackQualityUi();
   var wrap = document.getElementById('quality-control');
   if (wrap) wrap.classList.remove('open');
+  var modalWrap = document.getElementById('modal-quality-control');
+  if (modalWrap) modalWrap.classList.remove('open');
   applyPlaybackQualityToCurrentTrack(next, provider);
 }
 function canReloadCurrentTrackForQuality() {
@@ -316,9 +325,15 @@ function applyPlaybackQualityToCurrentTrack(nextQuality, provider) {
 }
 function toggleQualityPanel(e) {
   if (e) e.stopPropagation();
+  var isModal = e && e.target && (e.target.closest('#modal-quality-control') || e.target.id === 'modal-quality-btn' || (e.target.parentElement && e.target.parentElement.id === 'modal-quality-btn'));
+  var modalWrap = document.getElementById('modal-quality-control');
   var wrap = document.getElementById('quality-control');
-  if (wrap) {
-    wrap.classList.toggle('open');
+  if (isModal) {
+    if (modalWrap) modalWrap.classList.toggle('open');
+    if (wrap) wrap.classList.remove('open');
+  } else {
+    if (wrap) wrap.classList.toggle('open');
+    if (modalWrap) modalWrap.classList.remove('open');
   }
 }
 function bindQualityControl() {
@@ -329,6 +344,8 @@ function bindQualityControl() {
   }
   document.addEventListener('click', function (e) {
     if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+    var modalWrap = document.getElementById('modal-quality-control');
+    if (modalWrap && !modalWrap.contains(e.target)) modalWrap.classList.remove('open');
   });
   updatePlaybackQualityUi();
 }

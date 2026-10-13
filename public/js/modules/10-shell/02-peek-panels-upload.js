@@ -74,6 +74,7 @@ function setPeek(el, on, key) {
   if (on && !diyPlayerMode && key === 'fx') return;
   if (!on && key === 'search' && emptyHomeActive && !immersiveMode) return;
   if (!on && key === 'pl' && playlistPanelPinned) return;
+  if (!on && key === 'fx' && (fxPanelPinned || (el && (el.classList.contains('show') || el.classList.contains('pinned'))))) return;
   if (on && key === 'fx') document.body.classList.remove('fullscreen-diy-peek');
   if (on) {
     if (key === 'pl') resetSecondaryPlaylistEdgeGuard();
@@ -428,8 +429,13 @@ window.addEventListener('mousemove', function (e) {
   var inFxFab = ex >= fabRect.left - 18 && ex <= fabRect.right + 18 && ey >= fabRect.top - 18 && ey <= fabRect.bottom + 18;
   var inFxBridge = fpOn && ex >= Math.min(fpRect.left, fabRect.left) - 18 && ex <= W && ey >= fpRect.bottom - 10 && ey <= fabRect.bottom + 18;
   if (!diyPlayerMode) inFxPanel = inFxFab = inFxBridge = false;
-  if (inFxFab || inFxPanel || inFxBridge) setPeek(fp, true, 'fx');
-  else if (fpOn) setPeek(fp, false, 'fx');
+  if (fxPanelPinned || (fp && (fp.classList.contains('show') || fp.classList.contains('pinned')))) {
+    // 视觉设置已固定常驻，鼠标移开不收起
+  } else if (inFxFab || inFxPanel || inFxBridge) {
+    setPeek(fp, true, 'fx');
+  } else if (fpOn) {
+    setPeek(fp, false, 'fx');
+  }
   // 歌单/队列 DOM 面板只在左侧明确停留时出现，避免和右侧 3D 架抢焦点
   var ppOn = isPlaylistPanelActiveState(pp);
   var ppRect = pp.getBoundingClientRect();
@@ -464,16 +470,26 @@ window.addEventListener('mousemove', function (e) {
   setFocusZone(newFocus, newFocus === 'queue');
 });
 
-function toggleFxPanel(e) {
-  if (e && e.stopPropagation) e.stopPropagation();
+function toggleFxPanel(forceOrEvent) {
+  var force = typeof forceOrEvent === 'boolean' ? forceOrEvent : undefined;
+  if (forceOrEvent && forceOrEvent.stopPropagation) forceOrEvent.stopPropagation();
   var fp = document.getElementById('fx-panel');
   var fab = document.getElementById('fx-fab');
   if (!fp) return;
-  if (fp.classList.contains('show')) {
-    fp.classList.remove('show', 'peek');
+  if (!diyPlayerMode && force !== false) {
+    if (typeof applyDiyMode === 'function') applyDiyMode(true, { save: true, toast: true });
+  }
+  var isOpen = fxPanelPinned || fp.classList.contains('show') || fp.classList.contains('pinned');
+  if (peekTimers && peekTimers.fx) { clearTimeout(peekTimers.fx); peekTimers.fx = null; }
+  if (force === false || (force !== true && isOpen)) {
+    fxPanelPinned = false;
+    fp.classList.remove('show', 'peek', 'pinned');
+    fp.classList.add('closing');
+    setTimeout(function () { fp.classList.remove('closing'); }, 280);
     if (fab) fab.classList.remove('active');
   } else {
-    fp.classList.add('show');
+    fxPanelPinned = true;
+    fp.classList.add('show', 'pinned');
     fp.classList.remove('closing');
     if (fab) fab.classList.add('active');
   }
@@ -482,9 +498,10 @@ function toggleFxPanel(e) {
 document.addEventListener('pointerdown', function (e) {
   var fp = document.getElementById('fx-panel');
   var fab = document.getElementById('fx-fab');
-  if (fp && fp.classList.contains('show')) {
+  if (fp && (fp.classList.contains('show') || fp.classList.contains('pinned') || fxPanelPinned)) {
     if (!fp.contains(e.target) && (!fab || !fab.contains(e.target))) {
-      fp.classList.remove('show', 'peek');
+      fxPanelPinned = false;
+      fp.classList.remove('show', 'peek', 'pinned');
       if (fab) fab.classList.remove('active');
     }
   }

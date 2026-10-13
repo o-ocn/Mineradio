@@ -109,6 +109,7 @@ function sanitizePlaylist(source) {
   return {
     id,
     name: cleanText(source.name, '未命名歌单', 80),
+    cover: cleanText(source.cover, '', 4096),
     createdAt: Math.max(0, Number(source.createdAt) || Date.now()),
     updatedAt: Math.max(0, Number(source.updatedAt) || Date.now()),
     tracks,
@@ -149,7 +150,7 @@ class BuiltInPlaylistLibrary {
       name: playlist.name,
       creator: 'Mineradio',
       trackCount: playlist.tracks.length,
-      cover: cleanText(first.cover, '', 4096),
+      cover: cleanText(playlist.cover || first.cover, '', 4096),
       createdAt: playlist.createdAt,
       updatedAt: playlist.updatedAt,
       shelfPane: 'mine',
@@ -229,6 +230,16 @@ class BuiltInPlaylistLibrary {
       const playlist = next.find((item) => item.id === cleanText(id, '', 64).toLowerCase());
       if (!playlist) throw Object.assign(new Error('BUILT_IN_PLAYLIST_NOT_FOUND'), { code: 'BUILT_IN_PLAYLIST_NOT_FOUND' });
       playlist.name = cleanText(name, playlist.name, 80);
+      playlist.updatedAt = Date.now();
+      return { playlist: this.summary(playlist) };
+    });
+  }
+
+  setCover(id, cover) {
+    return this.mutate((next) => {
+      const playlist = next.find((item) => item.id === cleanText(id, '', 64).toLowerCase());
+      if (!playlist) throw Object.assign(new Error('BUILT_IN_PLAYLIST_NOT_FOUND'), { code: 'BUILT_IN_PLAYLIST_NOT_FOUND' });
+      playlist.cover = cleanText(cover, '', 4096);
       playlist.updatedAt = Date.now();
       return { playlist: this.summary(playlist) };
     });

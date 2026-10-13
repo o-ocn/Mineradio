@@ -197,33 +197,83 @@ function openLastFmSettingsModal() {
 }
 
 function closeLastFmSettingsModal() {
+  if (lastFmAuthPollingTimer) {
+    clearInterval(lastFmAuthPollingTimer);
+    lastFmAuthPollingTimer = null;
+  }
   var modal = document.getElementById('lastfm-settings-modal');
   if (modal && typeof closeGsapModal === 'function') closeGsapModal(modal);
 }
 
+var lastFmAuthPollingTimer = null;
+var lastFmCurrentAuthToken = '';
+
 function updateLastFmModalUi() {
-  var cfg = lastFmState.config;
+  var cfg = lastFmState.config || {};
   var userInp = document.getElementById('lastfm-username-input');
   var keyInp = document.getElementById('lastfm-session-input');
+  var apiKeyInp = document.getElementById('lastfm-apikey-input');
+  var secretInp = document.getElementById('lastfm-apisecret-input');
   var scrobbleCheck = document.getElementById('lastfm-scrobble-toggle');
   var statusBadge = document.getElementById('lastfm-modal-status-badge');
+  var authBtn = document.getElementById('lastfm-auth-main-btn');
+  var unlinkBtn = document.getElementById('lastfm-unlink-btn');
 
   if (userInp) userInp.value = cfg.username || '';
   if (keyInp) keyInp.value = cfg.sessionKey || '';
-  if (scrobbleCheck) scrobbleCheck.checked = !!cfg.scrobbleEnabled;
+  if (apiKeyInp) apiKeyInp.value = cfg.apiKey || '';
+  if (secretInp) secretInp.value = cfg.apiSecret || '';
+  if (scrobbleCheck) scrobbleCheck.checked = cfg.scrobbleEnabled !== false;
 
+  var isConnected = !!(cfg.hasSession && cfg.username);
   if (statusBadge) {
-    if (cfg.hasSession && cfg.username) {
-      statusBadge.innerHTML = '<span class="status-dot green"></span>已绑定账号：<b>' + escHtml(cfg.username) + '</b>';
+    if (isConnected) {
+      statusBadge.innerHTML = '<span class="status-dot green"></span>已绑定账号：<b>' + escHtml(cfg.username) + '</b>（听歌将自动打卡）';
+      statusBadge.className = 'lastfm-modal-status-badge connected';
     } else {
-      statusBadge.innerHTML = '<span class="status-dot gray"></span>未绑定 Session Key';
+      statusBadge.innerHTML = '<span class="status-dot gray"></span>未绑定账号，点击下方按钮前往授权';
+      statusBadge.className = 'lastfm-modal-status-badge';
     }
+  }
+
+  if (authBtn) {
+    if (isConnected) {
+      authBtn.innerHTML = '<span>🔄 重新授权或切换账号</span>';
+      authBtn.className = 'modal-btn full-width';
+    } else {
+      authBtn.innerHTML = '<span>🌐 浏览器一键授权</span>';
+      authBtn.className = 'modal-btn primary full-width';
+    }
+  }
+
+  if (unlinkBtn) {
+    unlinkBtn.style.display = isConnected ? 'inline-flex' : 'none';
+  }
+}
+
+async function unlinkLastFmAccount() {
+  var api = window.desktopWindow;
+  if (!api || typeof api.saveLastFmConfig !== 'function') return;
+  try {
+    var res = await api.saveLastFmConfig({ username: '', sessionKey: '', hasSession: false });
+    if (res && res.ok) {
+      lastFmState.config.username = '';
+      lastFmState.config.sessionKey = '';
+      lastFmState.config.hasSession = false;
+      updateHomeLastFmStatus();
+      updateLastFmModalUi();
+      if (typeof showToast === 'function') showToast('已解除 Last.fm 账号绑定');
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('解绑失败: ' + e.message);
   }
 }
 
 async function saveLastFmSettingsFromModal() {
   var userInp = document.getElementById('lastfm-username-input');
   var keyInp = document.getElementById('lastfm-session-input');
+  var apiKeyInp = document.getElementById('lastfm-apikey-input');
+  var secretInp = document.getElementById('lastfm-apisecret-input');
   var scrobbleCheck = document.getElementById('lastfm-scrobble-toggle');
   var api = window.desktopWindow;
   if (!api || typeof api.saveLastFmConfig !== 'function') return;
@@ -231,6 +281,8 @@ async function saveLastFmSettingsFromModal() {
   var newConfig = {
     username: userInp ? userInp.value.trim() : '',
     sessionKey: keyInp ? keyInp.value.trim() : '',
+    apiKey: apiKeyInp && apiKeyInp.value.trim() ? apiKeyInp.value.trim() : undefined,
+    apiSecret: secretInp && secretInp.value.trim() ? secretInp.value.trim() : undefined,
     scrobbleEnabled: scrobbleCheck ? scrobbleCheck.checked : true,
     enabled: true,
   };
@@ -249,51 +301,115 @@ async function saveLastFmSettingsFromModal() {
   }
 }
 
-async function openLastFmWebAuth() {
-  var authUrl = 'https://www.last.fm/api/auth/?api_key=b25b959554ed76058ac220b7b2e0a026';
+async function startLastFmAuthFlow() {
   var api = window.desktopWindow;
+  var authBtn = document.getElementById('lastfm-auth-main-btn');
+  var statusBadge = document.getElementById('lastfm-modal-status-badge');
+
+  var apiKeyInp = document.getElementById('lastfm-apikey-input');
+  var secretInp = document.getElementById('lastfm-apisecret-input');
+  if (api && typeof api.saveLastFmConfig === 'function' && ((apiKeyInp && apiKeyInp.value.trim()) || (secretInp && secretInp.value.trim()))) {
+    await api.saveLastFmConfig({
+      apiKey: apiKeyInp && apiKeyInp.value.trim() ? apiKeyInp.value.trim() : undefined,
+      apiSecret: secretInp && secretInp.value.trim() ? secretInp.value.trim() : undefined,
+    });
+  }
+
+  // 如果已经获取到 token，且用户再次点击，则立刻尝试验证一次
+  if (lastFmCurrentAuthToken && api && typeof api.lastFmCheckAuth === 'function') {
+    if (typeof showToast === 'function') showToast('正在核对网页授权状态…');
+    try {
+      var checkRes = await api.lastFmCheckAuth(lastFmCurrentAuthToken);
+      if (checkRes && checkRes.ok && checkRes.sessionKey) {
+        if (lastFmAuthPollingTimer) { clearInterval(lastFmAuthPollingTimer); lastFmAuthPollingTimer = null; }
+        lastFmCurrentAuthToken = '';
+        lastFmState.config = Object.assign({}, lastFmState.config, {
+          username: checkRes.username,
+          sessionKey: checkRes.sessionKey,
+          hasSession: true,
+          enabled: true,
+        });
+        updateHomeLastFmStatus();
+        updateLastFmModalUi();
+        if (typeof showToast === 'function') showToast('🎉 Last.fm 账号已成功绑定：' + checkRes.username + '！');
+        setTimeout(closeLastFmSettingsModal, 900);
+        return;
+      }
+    } catch (_) {}
+  }
+
+  if (authBtn) authBtn.innerHTML = '<span>⏳ 正在唤起授权页面…</span>';
+
+  var fallbackAuthUrl = 'https://www.last.fm/api/auth/?api_key=b25b959554ed76058ac220b7b2e0a026';
+  var token = '';
+
   try {
-    if (api && typeof api.lastFmOpenAuth === 'function') {
-      var res = await api.lastFmOpenAuth();
-      if (res && res.ok) {
-        if (typeof showToast === 'function') {
-          showToast('已在系统浏览器打开 Last.fm 授权页，完成授权后请返回保存');
-        }
-        return;
+    if (api && typeof api.lastFmStartAuth === 'function') {
+      var startRes = await api.lastFmStartAuth();
+      if (startRes && startRes.ok) {
+        token = startRes.token || '';
+        lastFmCurrentAuthToken = token;
       }
-    }
-    if (api && typeof api.openExternal === 'function') {
-      var res2 = await api.openExternal(authUrl);
-      if (res2 && res2.ok) {
-        if (typeof showToast === 'function') {
-          showToast('已在系统浏览器打开 Last.fm 授权页，完成授权后请返回保存');
-        }
-        return;
+    } else if (api && typeof api.lastFmOpenAuth === 'function') {
+      var openRes = await api.lastFmOpenAuth();
+      if (openRes && openRes.ok) {
+        token = openRes.token || '';
+        lastFmCurrentAuthToken = token;
       }
+    } else {
+      window.open(fallbackAuthUrl, '_blank');
+      if (typeof showToast === 'function') showToast('已在浏览器打开 Last.fm 授权页');
     }
-    var win = window.open(authUrl, '_blank');
-    if (win) {
-      if (typeof showToast === 'function') {
-        showToast('已打开 Last.fm 授权页，完成授权后请返回保存');
-      }
-      return;
+
+    if (statusBadge) {
+      statusBadge.innerHTML = '<span class="status-dot pulsing"></span>已打开浏览器，请在网页确认授权并允许访问…';
+      statusBadge.className = 'lastfm-modal-status-badge verifying';
     }
-    if (api && typeof api.copyText === 'function') {
-      api.copyText(authUrl);
-    } else if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(authUrl);
+    if (authBtn) {
+      authBtn.innerHTML = '<span>⚡ 检查授权状态</span>';
+      authBtn.className = 'modal-btn primary full-width';
     }
     if (typeof showToast === 'function') {
-      showToast('浏览器已拦截弹窗，已复制授权网址到剪贴板');
+      showToast('已在浏览器打开 Last.fm 授权页，确认后将自动绑定');
     }
-  } catch (error) {
-    if (api && typeof api.copyText === 'function') {
-      api.copyText(authUrl);
-    } else if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(authUrl);
+
+    // 开启自动轮询验证
+    if (token && api && typeof api.lastFmCheckAuth === 'function') {
+      if (lastFmAuthPollingTimer) clearInterval(lastFmAuthPollingTimer);
+      var attempts = 0;
+      lastFmAuthPollingTimer = setInterval(async function () {
+        attempts++;
+        if (attempts > 30 || !lastFmCurrentAuthToken) {
+          if (lastFmAuthPollingTimer) { clearInterval(lastFmAuthPollingTimer); lastFmAuthPollingTimer = null; }
+          return;
+        }
+        try {
+          var pollRes = await api.lastFmCheckAuth(lastFmCurrentAuthToken);
+          if (pollRes && pollRes.ok && pollRes.sessionKey) {
+            if (lastFmAuthPollingTimer) { clearInterval(lastFmAuthPollingTimer); lastFmAuthPollingTimer = null; }
+            lastFmCurrentAuthToken = '';
+            lastFmState.config = Object.assign({}, lastFmState.config, {
+              username: pollRes.username,
+              sessionKey: pollRes.sessionKey,
+              hasSession: true,
+              enabled: true,
+            });
+            updateHomeLastFmStatus();
+            updateLastFmModalUi();
+            if (typeof showToast === 'function') showToast('🎉 Last.fm 账号已成功绑定：' + pollRes.username + '！');
+            setTimeout(closeLastFmSettingsModal, 900);
+          }
+        } catch (_) {}
+      }, 2500);
     }
-    if (typeof showToast === 'function') showToast('已将授权网址复制到剪贴板，请在浏览器中打开');
+  } catch (err) {
+    if (typeof showToast === 'function') showToast('启动授权失败: ' + err.message);
+    updateLastFmModalUi();
   }
+}
+
+function openLastFmWebAuth() {
+  return startLastFmAuthFlow();
 }
 
 function createLastFmSettingsModal() {
@@ -306,27 +422,48 @@ function createLastFmSettingsModal() {
         '<span class="home-insight-kicker">LAST.FM · 音乐社区</span>' +
         '<h3 class="lastfm-modal-title">服务与授权设置</h3>' +
       '</div>' +
-      '<button class="lastfm-modal-close-btn" type="button" onclick="closeLastFmSettingsModal()" title="关闭">×</button>' +
+      '<button class="modal-close-btn lastfm-modal-close-btn" type="button" onclick="closeLastFmSettingsModal()" title="关闭">×</button>' +
     '</div>' +
     '<div class="lastfm-modal-body">' +
       '<div id="lastfm-modal-status-badge" class="lastfm-modal-status-badge"></div>' +
-      '<div class="lastfm-form-row">' +
-        '<label>Last.fm 用户名</label>' +
-        '<input id="lastfm-username-input" type="text" placeholder="例如: your_username" autocomplete="off" spellcheck="false">' +
-      '</div>' +
-      '<div class="lastfm-form-row">' +
-        '<label>Session Key（授权密钥）</label>' +
-        '<input id="lastfm-session-input" type="password" placeholder="填写你的 Last.fm Session Key" autocomplete="off" spellcheck="false">' +
+      '<div class="lastfm-auth-action-area">' +
+        '<p class="lastfm-desc-text">绑定后听歌将自动打卡记录到你的个人听歌图谱，并可随时根据正在播放的歌曲匹配全球相似音乐风格。</p>' +
+        '<div class="lastfm-primary-action-wrap">' +
+          '<button id="lastfm-auth-main-btn" class="modal-btn primary full-width" type="button" onclick="startLastFmAuthFlow()">' +
+            '<span>🌐 浏览器一键授权</span>' +
+          '</button>' +
+        '</div>' +
       '</div>' +
       '<div class="lastfm-form-toggle-row">' +
         '<label><input id="lastfm-scrobble-toggle" type="checkbox" checked> 开启播放时自动 Scrobble 打卡</label>' +
       '</div>' +
-      '<div class="lastfm-help-text">' +
-        'Last.fm 是全球音乐记录社区。开启后，软件会在你听歌时自动打卡记录到你的个人听歌图谱，并可随时根据正在听的歌曲推荐相似风格音乐。' +
-      '</div>' +
+      '<details class="lastfm-advanced-fold">' +
+        '<summary>高级：自定义 API 密钥与 Session Key</summary>' +
+        '<div class="lastfm-fold-content">' +
+          '<div class="lastfm-form-row">' +
+            '<label>API Key</label>' +
+            '<input id="lastfm-apikey-input" type="text" placeholder="留空使用默认 Key 或填自定义 API Key" autocomplete="off" spellcheck="false">' +
+          '</div>' +
+          '<div class="lastfm-form-row">' +
+            '<label>Shared Secret</label>' +
+            '<input id="lastfm-apisecret-input" type="password" placeholder="填写对应的 Shared Secret" autocomplete="off" spellcheck="false">' +
+          '</div>' +
+          '<div class="lastfm-form-row">' +
+            '<label>Last.fm 用户名</label>' +
+            '<input id="lastfm-username-input" type="text" placeholder="例如: your_username" autocomplete="off" spellcheck="false">' +
+          '</div>' +
+          '<div class="lastfm-form-row">' +
+            '<label>Session Key</label>' +
+            '<input id="lastfm-session-input" type="password" placeholder="填写或直接粘贴 Session Key（若已有）" autocomplete="off" spellcheck="false">' +
+          '</div>' +
+          '<div class="lastfm-form-hint" style="margin-top:8px;font-size:12px">' +
+            '<a href="https://www.last.fm/api/account/create" target="_blank" onclick="window.desktopWindow && window.desktopWindow.openExternalUrl ? (window.desktopWindow.openExternalUrl(\'https://www.last.fm/api/account/create\'), event.preventDefault()) : null" style="color:var(--champagne);text-decoration:none">🔗 免费申请 Last.fm API Key (秒级下发)</a>' +
+          '</div>' +
+        '</div>' +
+      '</details>' +
       '<div class="lastfm-btn-row">' +
-        '<button class="modal-btn" type="button" onclick="openLastFmWebAuth()">浏览器授权</button>' +
-        '<button class="modal-btn primary" type="button" onclick="saveLastFmSettingsFromModal()">保存设置</button>' +
+        '<button id="lastfm-unlink-btn" class="modal-btn danger" type="button" onclick="unlinkLastFmAccount()" style="display:none">解除绑定</button>' +
+        '<button class="modal-btn" type="button" onclick="saveLastFmSettingsFromModal()">保存设置</button>' +
       '</div>' +
     '</div>' +
   '</div>';

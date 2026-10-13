@@ -57,7 +57,9 @@ class LastFmService {
       scrobbleEnabled: this.config.scrobbleEnabled,
       hasKey: !!this.config.apiKey,
       apiKey: this.config.apiKey,
+      apiSecret: this.config.apiSecret,
       username: this.config.username,
+      sessionKey: this.config.sessionKey,
       hasSession: !!this.config.sessionKey,
     };
   }
@@ -141,9 +143,26 @@ class LastFmService {
     });
   }
 
-  getAuthUrl() {
+  getAuthUrl(token = '') {
     const apiKey = this.config.apiKey || DEFAULT_API_KEY;
+    if (token) {
+      return `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
+    }
     return `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}`;
+  }
+
+  async getRequestToken() {
+    const res = await this.request('auth.getToken', {
+      method: 'auth.getToken',
+    }, true);
+    if (res.ok && res.data && res.data.token) {
+      const token = res.data.token;
+      const apiKey = this.config.apiKey || DEFAULT_API_KEY;
+      const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
+      return { ok: true, token, authUrl };
+    }
+    const fallbackUrl = this.getAuthUrl();
+    return { ok: false, error: res.error || 'GET_TOKEN_FAILED', authUrl: fallbackUrl };
   }
 
   async createSession(token) {

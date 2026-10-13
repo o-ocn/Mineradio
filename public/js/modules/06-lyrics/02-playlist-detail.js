@@ -286,7 +286,7 @@ function playlistPanelDetailHtml(pl, provider, detailWindow) {
   var tracks = playlistPanelDetailState.tracks || [];
   var loading = playlistPanelDetailState.loading;
   var cover = pl && pl.cover ? (provider === 'netease' ? (pl.cover + '?param=96y96') : pl.cover) : '';
-  var img = cover ? '<img class="pl-detail-cover" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2">' : '<div class="pl-detail-cover"></div>';
+  var img = cover ? '<img class="pl-detail-cover' + (provider === 'mineradio' ? ' editable' : '') + '" src="' + escHtml(cover) + '" alt="" decoding="async" onerror="this.style.opacity=0.2"' + (provider === 'mineradio' ? ' title="点击更换歌单封面"' : '') + '>' : '<div class="pl-detail-cover' + (provider === 'mineradio' ? ' editable' : '') + '"' + (provider === 'mineradio' ? ' title="点击更换歌单封面"' : '') + '></div>';
   var expectedTotal = Math.max(tracks.length, Number(playlistPanelDetailState.total) || Number(pl.trackCount) || 0);
   var rows = playlistPanelDetailRowsHtml(detailWindow);
   var canUncollect = !!(pl && pl.subscribed && !pl.virtual && (provider === 'netease' || provider === 'qishui' || provider === 'spotify'));
@@ -294,7 +294,7 @@ function playlistPanelDetailHtml(pl, provider, detailWindow) {
     ? '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-collection="0">取消收藏</button>'
     : '';
   var builtInActions = provider === 'mineradio'
-    ? '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-rename="1">重命名</button><button class="fx-mini-btn ghost pl-detail-top-btn danger" type="button" data-pl-detail-delete="1">删除</button>'
+    ? '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-rename="1">重命名</button><button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-cover="1">换封面</button><button class="fx-mini-btn ghost pl-detail-top-btn danger" type="button" data-pl-detail-delete="1">删除</button>'
     : '';
   var topButton = provider === 'mineradio' ? '' : '<button class="fx-mini-btn ghost pl-detail-top-btn" type="button" data-pl-detail-top="1">回到顶部</button>';
   return '<div class="pl-inline-detail" data-pl-detail="' + escHtml(key) + '" style="height:' + playlistPanelDetailShellHeight() + 'px">' +
@@ -758,6 +758,15 @@ document.getElementById('pl-list').addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
     if (playlistPanelDetailState.playlist) renameBuiltInPlaylist(playlistPanelDetailState.playlist.id, playlistPanelDetailState.playlist.name);
+    return;
+  }
+  var changeCover = e.target && e.target.closest ? e.target.closest('[data-pl-detail-cover], .pl-detail-cover.editable') : null;
+  if (changeCover) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (playlistPanelDetailState.playlist && playlistPanelDetailState.playlist.provider === 'mineradio') {
+      changePlaylistCoverPrompt(playlistPanelDetailState.playlist.id, playlistPanelDetailState.playlist.cover);
+    }
     return;
   }
   var removePlaylist = e.target && e.target.closest ? e.target.closest('[data-pl-detail-delete]') : null;

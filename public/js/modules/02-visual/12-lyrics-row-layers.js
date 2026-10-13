@@ -33,10 +33,10 @@ function lyricTrackLineStepWorld(mask, worldH) {
   mask = mask || {};
   var h = Math.max(1, Number(mask.height) || 384);
   var lineHeight = Number(mask.lineHeight) || Number(mask.fontSize) || 128;
-  var step = worldH * (lineHeight / h) * 1.30;
+  var step = worldH * (lineHeight / h) * 1.85;
   step *= clampRange(1 + (lyricContextSpreadValue() - 1) * 0.32, 0.86, 1.55);
   if (lyricTranslationLayoutActive()) step *= 1.06;
-  return clampRange(step, 0.26, 1.25);
+  return clampRange(step, 0.26, 0.94);
 }
 
 function lyricTranslationLineStepWorld(mask, worldH) {

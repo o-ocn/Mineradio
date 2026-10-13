@@ -354,14 +354,14 @@ function makeLyricMask(input, layoutOverride) {
   for (var di = 0; di < lines.length; di++) {
     var entry = entries[di] || {};
     var lineFontSize = fontSize * (entry.scale || 1);
-    var isCurrentLine = di === activeLine;
     var lineY = y0 + di * lineHeight + lyricEntryLineOffset(entry) * lineHeight;
+    var isCurrentLine = (lines.length > 1) ? (di === activeLine) : (entry.role === 'current');
     ctx.save();
     if (lines.length > 1 && !isCurrentLine) {
-      // Apple Music 风格：未唱行磨砂高斯模糊虚化，降低对比度
-      var blurPx = Math.max(1.8, Math.min(5.5, lineFontSize * 0.052));
+      // Apple Music 风格：多行同画布模式下未唱行磨砂高斯模糊虚化，降低对比度
+      var blurPx = Math.max(2.4, Math.min(6.5, lineFontSize * 0.058));
       ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
-      ctx.globalAlpha = (entry.alpha == null ? 1 : entry.alpha) * 0.46;
+      ctx.globalAlpha = (entry.alpha == null ? 1 : entry.alpha) * 0.42;
     } else {
       ctx.filter = 'none';
       ctx.globalAlpha = entry.alpha == null ? 1 : entry.alpha;
@@ -479,7 +479,15 @@ function makeLyricQualityTexture(mask, tier) {
     var entry = entries[i] || {};
     var lineFontSize = fontSize * (entry.scale || 1);
     var lineY = lineY0 + i * lineHeight + lyricEntryLineOffset(entry) * lineHeight;
-    ctx.globalAlpha = entry.alpha == null ? 1 : entry.alpha;
+    var isCurrentQualityLine = (lines.length > 1) ? (i === activeLine) : (entry.role === 'current');
+    if (!isCurrentQualityLine) {
+      var blurPx = Math.max(2.4, Math.min(6.5, lineFontSize * 0.058));
+      ctx.filter = 'blur(' + blurPx.toFixed(1) + 'px)';
+      ctx.globalAlpha = (entry.alpha == null ? 1 : entry.alpha) * 0.42;
+    } else {
+      ctx.filter = 'none';
+      ctx.globalAlpha = entry.alpha == null ? 1 : entry.alpha;
+    }
     ctx.font = lyricFontCss(lineFontSize, lyricEntryWeight(entry));
     if (fitScaleX < 1) {
       ctx.save();

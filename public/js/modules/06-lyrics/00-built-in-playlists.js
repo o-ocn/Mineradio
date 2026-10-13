@@ -151,6 +151,45 @@ async function renameBuiltInPlaylist(id, currentName) {
   return true;
 }
 
+async function setBuiltInPlaylistCover(id, coverUrl) {
+  if (!builtInPlaylistApiAvailable() || typeof window.desktopWindow.setBuiltInPlaylistCover !== 'function') return false;
+  var result = await window.desktopWindow.setBuiltInPlaylistCover(String(id || ''), String(coverUrl || ''));
+  if (!result || result.ok !== true) {
+    if (typeof showToast === 'function') showToast(builtInPlaylistErrorMessage(result, '修改歌单封面失败'));
+    return false;
+  }
+  if (playlistPanelDetailState && playlistPanelDetailState.key === 'mineradio:' + String(id || '') && playlistPanelDetailState.playlist) {
+    playlistPanelDetailState.playlist.cover = String(coverUrl || '');
+  }
+  applyBuiltInPlaylistSnapshot(result, { preserveScroll: true, reason: 'built-in-playlist-set-cover' });
+  if (typeof showToast === 'function') showToast('歌单封面已更新');
+  return true;
+}
+
+function changePlaylistCoverPrompt(id, currentCover) {
+  var choice = window.prompt('修改歌单封面：请输入图片网络链接，或留空直接选择本地图片文件', String(currentCover || ''));
+  if (choice == null) return;
+  var trimmed = choice.trim();
+  if (trimmed) {
+    setBuiltInPlaylistCover(id, trimmed);
+    return;
+  }
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (evt) {
+      var dataUrl = evt.target && evt.target.result;
+      if (dataUrl) setBuiltInPlaylistCover(id, dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
 async function deleteBuiltInPlaylist(id, currentName) {
   if (!window.confirm('删除内置歌单“' + String(currentName || '未命名歌单') + '”？\n只删除歌单，不会删除平台或本地歌曲。')) return false;
   var result = await window.desktopWindow.deleteBuiltInPlaylist(String(id || ''));

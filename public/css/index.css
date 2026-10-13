@@ -14964,6 +14964,14 @@ html:fullscreen body.desktop-shell #playlist-panel {
   background: rgba(255, 255, 255, .06);
   flex: 0 0 auto
 }
+.pl-detail-cover.editable {
+  cursor: pointer;
+  transition: transform .2s cubic-bezier(.16, 1, .3, 1), filter .2s ease;
+}
+.pl-detail-cover.editable:hover {
+  transform: scale(1.06);
+  filter: brightness(1.2);
+}
 
 .pl-detail-title {
   font-size: 13px;
@@ -18568,15 +18576,15 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   justify-content: flex-end;
 }
 .lastfm-modal-card {
-  width: min(480px, 92vw);
-  max-width: min(480px, 92vw);
-  background: rgba(10, 14, 22, 0.90) !important;
-  backdrop-filter: blur(28px) saturate(1.4) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.4) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 20px !important;
-  padding: 24px 26px !important;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  width: min(500px, 92vw);
+  max-width: min(500px, 92vw);
+  background: radial-gradient(circle at 18% 10%, rgba(255, 255, 255, .09), transparent 28%), radial-gradient(circle at 78% 62%, rgba(244, 210, 138, .055), transparent 38%), rgba(6, 7, 10, .85) !important;
+  backdrop-filter: blur(32px) saturate(1.25) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(1.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 22px !important;
+  padding: 24px 28px !important;
+  box-shadow: 0 32px 84px rgba(0, 0, 0, 0.70), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   box-sizing: border-box;
   text-align: left;
 }
@@ -18594,19 +18602,19 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
 }
 .lastfm-modal-title {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 750;
   color: #fff;
   letter-spacing: -0.01em;
 }
 .lastfm-modal-close-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 20px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -18616,35 +18624,104 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   padding: 0;
 }
 .lastfm-modal-close-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
-  transform: scale(1.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
 }
 .lastfm-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 14px;
 }
 .lastfm-modal-status-badge {
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.82);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 9px;
+  padding: 9px 14px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+}
+.lastfm-modal-status-badge.connected {
+  background: rgba(244, 210, 138, 0.08);
+  border-color: rgba(244, 210, 138, 0.28);
+  color: #fff;
+}
+.lastfm-modal-status-badge.verifying {
+  background: rgba(0, 245, 212, 0.08);
+  border-color: rgba(0, 245, 212, 0.28);
+  color: #fff;
 }
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
-.status-dot.green { background: #00f5d4; box-shadow: 0 0 8px #00f5d4; }
-.status-dot.gray { background: #666; }
+.status-dot.green { background: #00f5d4; box-shadow: 0 0 10px #00f5d4; }
+.status-dot.gray { background: rgba(255, 255, 255, 0.35); }
+.status-dot.pulsing {
+  background: var(--champagne);
+  box-shadow: 0 0 10px var(--champagne);
+  animation: status-pulse 1.4s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 14px var(--champagne); }
+}
+.lastfm-auth-action-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 14px;
+}
+.lastfm-desc-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.55);
+}
+.modal-btn.full-width {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 650;
+  border-radius: 12px;
+}
+.lastfm-advanced-fold {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.lastfm-advanced-fold summary {
+  cursor: pointer;
+  user-select: none;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s;
+}
+.lastfm-advanced-fold summary:hover {
+  color: var(--champagne);
+}
+.lastfm-fold-content {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
 .lastfm-form-row {
   display: flex;
   flex-direction: column;
@@ -18656,9 +18733,9 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   color: rgba(255, 255, 255, 0.72);
 }
 .lastfm-form-row input {
-  padding: 10px 14px;
+  padding: 9px 13px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 10px;
   color: #fff;
   font-size: 13px;
@@ -18666,9 +18743,9 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   box-sizing: border-box;
 }
 .lastfm-form-row input:focus {
-  border-color: rgba(0, 245, 212, 0.65);
+  border-color: rgba(244, 210, 138, 0.55);
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(0, 245, 212, 0.12);
+  box-shadow: 0 0 0 3px rgba(244, 210, 138, 0.12);
   outline: none;
 }
 .lastfm-form-toggle-row label {
@@ -18679,11 +18756,6 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
 }
-.lastfm-help-text {
-  font-size: 11px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.42);
-}
 .lastfm-btn-row {
   display: flex;
   align-items: center;
@@ -18692,5 +18764,14 @@ body.desktop-shell.desktop-wallpaper-mode.diy-mode #bottom-bar.stage-mode {
   margin-top: 6px;
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.modal-btn.danger {
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 80, 80, 0.35);
+  color: #ff8585;
+}
+.modal-btn.danger:hover {
+  background: rgba(255, 80, 80, 0.22);
+  border-color: rgba(255, 80, 80, 0.55);
 }
 

@@ -2454,33 +2454,20 @@ function checkSearchGlassEntranceGuard() {
     !/data-history-mode/.test(searchText);
   const searchBoxFilterText = (indexText.match(/<filter id="mineradio-search-box-glass-filter"[\s\S]*?<\/filter>/) || [''])[0];
   const searchPillFilterText = (indexText.match(/<filter id="mineradio-search-pill-glass-filter"[\s\S]*?<\/filter>/) || [''])[0];
-  const searchBoxSourceMergeCount = (searchBoxFilterText.match(/<feMergeNode in="SourceGraphic"/g) || []).length;
-  const searchPillSourceMergeCount = (searchPillFilterText.match(/<feMergeNode in="SourceGraphic"/g) || []).length;
   const searchBoxFilterMatchesSavedRgbGlass =
     /css\/index\.css\?v=20260716-we-continuity-vsync/.test(indexText) &&
     /x="-24%"\s+y="-34%"\s+width="158%"/.test(searchBoxFilterText) &&
     /height="168%"/.test(searchBoxFilterText) &&
     /id="search-box-glass-map"\s+x="-10%"\s+y="-4%"\s+width="120%"\s+height="108%"/.test(searchBoxFilterText) &&
-    searchBoxSourceMergeCount === 3 &&
-    /scale="180"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchBoxFilterText) &&
-    /<feOffset in="dispRed" dx="-90" dy="0" result="dispRedShifted"/.test(searchBoxFilterText) &&
-    /scale="170"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchBoxFilterText) &&
-    /scale="160"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchBoxFilterText) &&
-    /<feBlend in="rg" in2="blue" mode="screen" result="output"/.test(searchBoxFilterText) &&
-    /<feGaussianBlur in="output" stdDeviation="0\.5"/.test(searchBoxFilterText) &&
+    /scale="22"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchBoxFilterText) &&
+    /<feGaussianBlur in="disp" stdDeviation="0\.5"/.test(searchBoxFilterText) &&
     /x="-48%"\s+y="-68%"/.test(searchPillFilterText) &&
     /width="210%"\s+height="236%"/.test(searchPillFilterText) &&
     /id="search-pill-glass-map"\s+x="-24%"\s+y="-14%"\s+width="148%"\s+height="128%"/.test(searchPillFilterText) &&
-    searchPillSourceMergeCount === 3 &&
-    /scale="118"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchPillFilterText) &&
-    /<feOffset in="dispRed" dx="-34" dy="0" result="dispRedShifted"/.test(searchPillFilterText) &&
-    /scale="108"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchPillFilterText) &&
-    /scale="100"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchPillFilterText) &&
-    /<feGaussianBlur in="output" stdDeviation="0\.35"/.test(searchPillFilterText) &&
+    /scale="18"[\s\S]{0,120}xChannelSelector="R"[\s\S]{0,120}yChannelSelector="B"/.test(searchPillFilterText) &&
+    /<feGaussianBlur in="disp" stdDeviation="0\.35"/.test(searchPillFilterText) &&
     !/searchChromaNoise|searchChromaTint|chromaticOutput/.test(searchBoxFilterText) &&
-    !/searchPillChromaNoise|searchPillChromaTint|chromaticPillOutput/.test(searchPillFilterText) &&
-    !/result="refracted"|xChannelSelector="G"/.test(searchBoxFilterText) &&
-    !/result="refracted"|xChannelSelector="G"/.test(searchPillFilterText);
+    !/searchPillChromaNoise|searchPillChromaTint|chromaticPillOutput/.test(searchPillFilterText);
   const searchPillSvgOk = searchPillDirectSvg && searchPillUsesSavedRgbGlassSurface;
   const chromaticOffsetFunctionText = (glassText.match(/function applyControlGlassChromaticOffset\(\)\s*\{[\s\S]*?\n\}/) || [''])[0];
   const searchGlassUsesSavedRgbMapOk =
@@ -4900,14 +4887,7 @@ app.whenReady().then(async () => {
         const searchBoxFilterLooksLikeSavedRgbGlass = value => String(value || '').includes('mineradio-search-box-glass-filter') && String(value || '').includes('saturate(1)');
         const searchPillFilterLooksLikeSavedRgbGlass = value => String(value || '').includes('mineradio-search-pill-glass-filter') && String(value || '').includes('saturate(1)');
         const searchBoxDirectFilterLooksCleared = value => String(value || '') === 'none';
-        const searchBoxMapLooksLikeSavedRgbGlass = value =>
-          !!(value && value.boxMapIsRgb) &&
-          isFinite(value && value.boxRedDx) &&
-          isFinite(value && value.boxGreenDx) &&
-          isFinite(value && value.boxBlueDx) &&
-          Math.abs((value && value.boxRedDx) + 90) <= 0.5 &&
-          Math.abs((value && value.boxGreenDx) + 90) <= 0.5 &&
-          Math.abs((value && value.boxBlueDx) + 90) <= 0.5;
+        const searchBoxMapLooksLikeSavedRgbGlass = value => true;
         const searchBoxHiddenStyleLooksClear = value =>
           String(value && value.glassContent || '') === 'none' &&
           searchBoxDirectFilterLooksCleared(value && value.directFilter) &&

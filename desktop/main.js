@@ -4591,6 +4591,11 @@ ipcMain.handle('mineradio-built-in-playlist-rename', async (event, id, name) => 
   try { return await builtInPlaylistLibrary.rename(id, name); } catch (error) { return builtInPlaylistMutationError(error); }
 });
 
+ipcMain.handle('mineradio-built-in-playlist-set-cover', async (event, id, cover) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
+  try { return await builtInPlaylistLibrary.setCover(id, cover); } catch (error) { return builtInPlaylistMutationError(error); }
+});
+
 ipcMain.handle('mineradio-built-in-playlist-delete', async (event, id) => {
   if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'UNTRUSTED_SENDER' };
   try { return await builtInPlaylistLibrary.delete(id); } catch (error) { return builtInPlaylistMutationError(error); }
@@ -4897,9 +4902,29 @@ ipcMain.handle('mineradio-lastfm-get-auth-url', async () => {
 
 ipcMain.handle('mineradio-lastfm-open-auth', async () => {
   try {
-    const url = lastFmService.getAuthUrl();
+    const tokenResult = await lastFmService.getRequestToken();
+    const url = tokenResult.authUrl || lastFmService.getAuthUrl();
     await shell.openExternal(url);
-    return { ok: true, url };
+    return { ok: true, token: tokenResult.token || '', url };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle('mineradio-lastfm-start-auth', async () => {
+  try {
+    const tokenResult = await lastFmService.getRequestToken();
+    const url = tokenResult.authUrl || lastFmService.getAuthUrl();
+    await shell.openExternal(url);
+    return { ok: true, token: tokenResult.token || '', url };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle('mineradio-lastfm-check-auth', async (_event, token) => {
+  try {
+    return await lastFmService.createSession(token);
   } catch (error) {
     return { ok: false, error: error.message };
   }

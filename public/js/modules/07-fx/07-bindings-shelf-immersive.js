@@ -475,26 +475,30 @@ function toggleFx(key) {
     showToast(fx.aiDepth ? '已开启后台 AI 立体增强' : '已关闭 AI 立体增强, 使用轻量弧面');
   }
 }
-function toggleFxPanel(force) {
+function toggleFxPanel(forceOrEvent) {
+  var force = typeof forceOrEvent === 'boolean' ? forceOrEvent : undefined;
+  if (forceOrEvent && forceOrEvent.stopPropagation) forceOrEvent.stopPropagation();
   var el = document.getElementById('fx-panel');
   if (!el) return;
   if (!diyPlayerMode && force !== false) {
-    showToast('开启 DIY 玩家模式后可打开视觉控制台');
-    return;
+    if (typeof applyDiyMode === 'function') applyDiyMode(true, { save: true, toast: true });
   }
-  var currentlyOpen = el.classList.contains('show') || el.classList.contains('peek');
+  var currentlyOpen = fxPanelPinned || el.classList.contains('show') || el.classList.contains('pinned');
   if (peekTimers && peekTimers.fx) { clearTimeout(peekTimers.fx); peekTimers.fx = null; }
-  fxPanelPinned = false;
-  if (force === false) {
-    el.classList.remove('show', 'peek');
-    el.classList.toggle('closing', currentlyOpen);
+  if (force === false || (force !== true && currentlyOpen)) {
+    fxPanelPinned = false;
+    el.classList.remove('show', 'peek', 'pinned');
+    el.classList.add('closing');
     setTimeout(function () { el.classList.remove('closing'); }, 280);
     var fab = document.getElementById('fx-fab');
     if (fab) fab.classList.remove('active');
     return;
   }
-  el.classList.remove('show', 'closing');
-  setPeek(el, true, 'fx');
+  fxPanelPinned = true;
+  el.classList.add('show', 'pinned');
+  el.classList.remove('closing');
+  var fabOn = document.getElementById('fx-fab');
+  if (fabOn) fabOn.classList.add('active');
 }
 function resetFx() {
   var savedCam = fx.cam;

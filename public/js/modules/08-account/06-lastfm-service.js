@@ -250,33 +250,49 @@ async function saveLastFmSettingsFromModal() {
 }
 
 async function openLastFmWebAuth() {
+  var authUrl = 'https://www.last.fm/api/auth/?api_key=b25b959554ed76058ac220b7b2e0a026';
   var api = window.desktopWindow;
   try {
     if (api && typeof api.lastFmOpenAuth === 'function') {
       var res = await api.lastFmOpenAuth();
       if (res && res.ok) {
         if (typeof showToast === 'function') {
-          showToast('已在系统浏览器打开 Last.fm 授权页，授权完成后请填入 Session 或用户名');
+          showToast('已在系统浏览器打开 Last.fm 授权页，完成授权后请返回保存');
         }
         return;
       }
     }
-    if (api && typeof api.getLastFmAuthUrl === 'function') {
-      var res2 = await api.getLastFmAuthUrl();
-      if (res2 && res2.url) {
-        if (typeof api.openUpdatePage === 'function') {
-          await api.openUpdatePage(res2.url);
-        } else {
-          window.open(res2.url, '_blank');
-        }
+    if (api && typeof api.openExternal === 'function') {
+      var res2 = await api.openExternal(authUrl);
+      if (res2 && res2.ok) {
         if (typeof showToast === 'function') {
-          showToast('已在系统浏览器打开 Last.fm 授权页，授权完成后请填入 Session 或用户名');
+          showToast('已在系统浏览器打开 Last.fm 授权页，完成授权后请返回保存');
         }
         return;
       }
+    }
+    var win = window.open(authUrl, '_blank');
+    if (win) {
+      if (typeof showToast === 'function') {
+        showToast('已打开 Last.fm 授权页，完成授权后请返回保存');
+      }
+      return;
+    }
+    if (api && typeof api.copyText === 'function') {
+      api.copyText(authUrl);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(authUrl);
+    }
+    if (typeof showToast === 'function') {
+      showToast('浏览器已拦截弹窗，已复制授权网址到剪贴板');
     }
   } catch (error) {
-    if (typeof showToast === 'function') showToast('打开授权链接失败: ' + (error && error.message || error));
+    if (api && typeof api.copyText === 'function') {
+      api.copyText(authUrl);
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(authUrl);
+    }
+    if (typeof showToast === 'function') showToast('已将授权网址复制到剪贴板，请在浏览器中打开');
   }
 }
 
@@ -285,32 +301,35 @@ function createLastFmSettingsModal() {
   shell.id = 'lastfm-settings-modal';
   shell.className = 'modal-mask lastfm-settings-modal';
   shell.innerHTML = '<div class="modal lastfm-modal-card">' +
-    '<div class="login-panel-head">' +
-    '<div><b>Last.fm 服务与打卡设置</b><small>Scrobble & 推荐</small></div>' +
-    '<button class="login-panel-close" type="button" onclick="closeLastFmSettingsModal()">×</button>' +
+    '<div class="lastfm-modal-head">' +
+      '<div class="lastfm-modal-title-wrap">' +
+        '<span class="home-insight-kicker">LAST.FM · 音乐社区</span>' +
+        '<h3 class="lastfm-modal-title">服务与授权设置</h3>' +
+      '</div>' +
+      '<button class="lastfm-modal-close-btn" type="button" onclick="closeLastFmSettingsModal()" title="关闭">×</button>' +
     '</div>' +
     '<div class="lastfm-modal-body">' +
-    '<div id="lastfm-modal-status-badge" class="lastfm-modal-status-badge"></div>' +
-    '<div class="lastfm-form-row">' +
-    '<label>Last.fm 用户名</label>' +
-    '<input id="lastfm-username-input" type="text" placeholder="例如: your_username" autocomplete="off" spellcheck="false">' +
+      '<div id="lastfm-modal-status-badge" class="lastfm-modal-status-badge"></div>' +
+      '<div class="lastfm-form-row">' +
+        '<label>Last.fm 用户名</label>' +
+        '<input id="lastfm-username-input" type="text" placeholder="例如: your_username" autocomplete="off" spellcheck="false">' +
+      '</div>' +
+      '<div class="lastfm-form-row">' +
+        '<label>Session Key（授权密钥）</label>' +
+        '<input id="lastfm-session-input" type="password" placeholder="填写你的 Last.fm Session Key" autocomplete="off" spellcheck="false">' +
+      '</div>' +
+      '<div class="lastfm-form-toggle-row">' +
+        '<label><input id="lastfm-scrobble-toggle" type="checkbox" checked> 开启播放时自动 Scrobble 打卡</label>' +
+      '</div>' +
+      '<div class="lastfm-help-text">' +
+        'Last.fm 是全球音乐记录社区。开启后，软件会在你听歌时自动打卡记录到你的个人听歌图谱，并可随时根据正在听的歌曲推荐相似风格音乐。' +
+      '</div>' +
+      '<div class="lastfm-btn-row">' +
+        '<button class="modal-btn" type="button" onclick="openLastFmWebAuth()">浏览器授权</button>' +
+        '<button class="modal-btn primary" type="button" onclick="saveLastFmSettingsFromModal()">保存设置</button>' +
+      '</div>' +
     '</div>' +
-    '<div class="lastfm-form-row">' +
-    '<label>Session Key（授权密钥）</label>' +
-    '<input id="lastfm-session-input" type="password" placeholder="填写你的 Last.fm Session Key" autocomplete="off" spellcheck="false">' +
-    '</div>' +
-    '<div class="lastfm-form-toggle-row">' +
-    '<label><input id="lastfm-scrobble-toggle" type="checkbox" checked> 开启播放时自动 Scrobble 打卡</label>' +
-    '</div>' +
-    '<div class="lastfm-help-text">' +
-    'Last.fm 是全球音乐记录社区。开启后，软件会在你听歌时自动打卡记录到你的个人听歌图谱，并可随时根据正在听的歌曲推荐相似风格音乐。' +
-    '</div>' +
-    '<div class="btn-row">' +
-    '<button class="modal-btn" type="button" onclick="openLastFmWebAuth()">浏览器授权</button>' +
-    '<button class="modal-btn primary" type="button" onclick="saveLastFmSettingsFromModal()">保存设置</button>' +
-    '</div>' +
-    '</div>' +
-    '</div>';
+  '</div>';
   document.body.appendChild(shell);
 }
 

@@ -4905,6 +4905,18 @@ ipcMain.handle('mineradio-lastfm-open-auth', async () => {
   }
 });
 
+ipcMain.handle('mineradio-open-external-url', async (_event, url) => {
+  try {
+    if (!url || typeof url !== 'string') return { ok: false, error: 'INVALID_URL' };
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return { ok: false, error: 'UNSUPPORTED_PROTOCOL' };
+    await shell.openExternal(url);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
 ipcMain.handle('mineradio-lastfm-create-session', async (_event, token) => {
   return lastFmService.createSession(token);
 });

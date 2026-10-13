@@ -464,5 +464,31 @@ window.addEventListener('mousemove', function (e) {
   setFocusZone(newFocus, newFocus === 'queue');
 });
 
+function toggleFxPanel(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  var fp = document.getElementById('fx-panel');
+  var fab = document.getElementById('fx-fab');
+  if (!fp) return;
+  if (fp.classList.contains('show')) {
+    fp.classList.remove('show', 'peek');
+    if (fab) fab.classList.remove('active');
+  } else {
+    fp.classList.add('show');
+    fp.classList.remove('closing');
+    if (fab) fab.classList.add('active');
+  }
+}
+
+document.addEventListener('pointerdown', function (e) {
+  var fp = document.getElementById('fx-panel');
+  var fab = document.getElementById('fx-fab');
+  if (fp && fp.classList.contains('show')) {
+    if (!fp.contains(e.target) && (!fab || !fab.contains(e.target))) {
+      fp.classList.remove('show', 'peek');
+      if (fab) fab.classList.remove('active');
+    }
+  }
+});
+
 // ============================================================
 //  启动页 (splash) 控制

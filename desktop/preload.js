@@ -93,6 +93,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   lastFmScrobble: (trackInfo) => ipcRenderer.invoke('mineradio-lastfm-scrobble', trackInfo || {}),
   lastFmGetSimilar: (trackInfo) => ipcRenderer.invoke('mineradio-lastfm-get-similar', trackInfo || {}),
   lastFmGetRecent: (options) => ipcRenderer.invoke('mineradio-lastfm-get-recent', options || {}),
+  openExternal: (url) => ipcRenderer.invoke('mineradio-open-external-url', String(url || '')),
   openUpdatePage: (url) => ipcRenderer.invoke('mineradio-open-update-page', String(url || '')),
   restartApp: () => ipcRenderer.invoke('mineradio-restart-app'),
   configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('mineradio-hotkeys-configure-global', bindings || []),

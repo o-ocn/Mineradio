@@ -197,6 +197,7 @@ function bindPlaybackProgressEvents(audioEl) {
   audioEl.addEventListener('timeupdate', function () {
     if (typeof tickCuefieldAutoMix === 'function') tickCuefieldAutoMix();
     if (typeof onLastFmTimeUpdate === 'function') onLastFmTimeUpdate(audioEl.currentTime, audioEl.duration);
+    if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(false);
   });
   ['play', 'playing', 'pause', 'ended', 'emptied', 'abort', 'error'].forEach(function (name) {
     audioEl.addEventListener(name, function () {
@@ -210,6 +211,7 @@ function bindPlaybackProgressEvents(audioEl) {
       if (name === 'ended' && audioEl === audio && playbackTransitionHasAudibleNextDeck()) return;
       syncPlaybackStateFromAudioEvent(name);
       saveLastPlaybackSnapshot(name === 'pause' || name === 'ended', name);
+      if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(true);
       if (name === 'playing' || name === 'play') {
         if (typeof onLastFmTrackStart === 'function' && playQueue && currentIdx >= 0) {
           onLastFmTrackStart(playQueue[currentIdx]);
@@ -425,6 +427,7 @@ function commitProgressSeek(targetTime, resumeAfterSeek) {
   renderProgressPreview(targetTime, durationSec);
   syncBeatMapPlaybackCursor(targetTime, true);
   saveLastPlaybackSnapshot(true, 'seek');
+  if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(true);
   waitForProgressSeekReady(media, targetTime, serial, 1800).then(function (ready) {
     if (serial !== progressDragState.commitSerial || !progressSeekMediaStillCurrent(media, mediaSrc)) return false;
     if (ready) return true;
@@ -508,6 +511,7 @@ setInterval(function () {
   updatePlaybackProgressUi();
   saveLastPlaybackSnapshot(false, 'tick');
   if (audio.currentTime) updateLyricsHighlight();
+  if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(false);
 }, 200);
 
 // ============================================================

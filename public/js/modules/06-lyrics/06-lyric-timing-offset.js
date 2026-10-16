@@ -259,3 +259,68 @@ function bindLyricTimingOffsetControls() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindLyricTimingOffsetControls);
 else bindLyricTimingOffsetControls();
+
+function activeLyricLineForTime(t) {
+  if (!Array.isArray(lyricsLines) || !lyricsLines.length) return null;
+  var target = Math.max(0, Number(t) || 0);
+  for (var i = lyricsLines.length - 1; i >= 0; i--) {
+    var line = lyricsLines[i];
+    if (line && line.t <= target) {
+      return {
+        line: line,
+        index: i,
+        text: line.text || '',
+        translation: line.translation || '',
+        words: line.words || [],
+        duration: line.duration || 0
+      };
+    }
+  }
+  return {
+    line: lyricsLines[0],
+    index: 0,
+    text: lyricsLines[0].text || '',
+    translation: lyricsLines[0].translation || '',
+    words: lyricsLines[0].words || [],
+    duration: lyricsLines[0].duration || 0
+  };
+}
+
+var lastLyricBroadcastTime = 0;
+function broadcastCurrentLyricState(force) {
+  var now = Date.now();
+  if (!force && now - lastLyricBroadcastTime < 600) return;
+  lastLyricBroadcastTime = now;
+  var song = typeof lyricTimingCurrentSong === 'function' ? lyricTimingCurrentSong() : (Array.isArray(playQueue) && currentIdx >= 0 ? playQueue[currentIdx] : null);
+  var curTime = audio && isFinite(audio.currentTime) ? audio.currentTime : 0;
+  var dur = audio && isFinite(audio.duration) ? audio.duration : (song && song.duration ? song.duration : 0);
+  var adjustedTime = typeof getAdjustedLyricPlaybackTime === 'function' ? getAdjustedLyricPlaybackTime(curTime) : curTime;
+  var active = activeLyricLineForTime(adjustedTime);
+  var payload = {
+    playing: typeof playing !== 'undefined' ? !!playing : false,
+    song: song ? {
+      id: song.id,
+      name: song.name || song.title,
+      artist: song.artist || song.singer,
+      album: song.album,
+      duration: dur,
+      cover: song.cover || song.customCover,
+      provider: song.provider || song.source
+    } : null,
+    currentTime: curTime,
+    duration: dur,
+    currentLine: active ? active.text : '',
+    currentLineTranslation: active ? active.translation : '',
+    currentLineIndex: active ? active.index : -1,
+    words: active ? active.words : [],
+    offset: typeof getActiveLyricTimingOffsetSeconds === 'function' ? getActiveLyricTimingOffsetSeconds() : 0
+  };
+  try {
+    fetch('/api/current-lyric', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(function () {});
+  } catch (_) {}
+}

@@ -520,6 +520,14 @@ function openTrackDetailModal(type, songOverride) {
       '<span class="detail-chip">' + escHtml(songSourceLabel(song)) + '</span>' +
       '<span class="detail-chip">按专辑顺序播放</span>' +
       '</div>' +
+      (song.staffCredits && song.staffCredits.length
+        ? '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">制作团队与演职员</div></div>' +
+          '<div class="detail-credits-list" style="display:flex;flex-wrap:wrap;gap:6px 10px;padding:4px 0 8px;">' +
+          song.staffCredits.map(function (c) {
+            return '<span class="detail-chip" style="font-size:12px;opacity:0.85;padding:3px 10px;">' + escHtml(c) + '</span>';
+          }).join('') +
+          '</div></div>'
+        : '') +
       '<div class="detail-section"><div class="detail-section-head"><div class="detail-section-title">专辑曲目</div><div class="detail-section-actions">' + renderAlbumCollectionButton(song) + renderAlbumGaplessButton() + '</div></div><div id="album-song-list">' +
       (albumUrl ? '<div class="detail-loading">正在载入专辑曲目...</div>' : '<div class="detail-empty">' + escHtml(albumDetailMissingText(song)) + '</div>') +
       '</div></div>';
@@ -979,9 +987,13 @@ function preferredLyricSourceForSong(song) {
 function applyPreferredLyricsForCurrent(silent) {
   var song = currentLyricSong();
   var renderOptions = { preserveSame: true, reason: 'applyPreferredLyricsForCurrent' };
-  if (preferredLyricSourceForSong(song) === 'custom' && applyCustomLyricState(song, true, renderOptions)) return;
+  if (preferredLyricSourceForSong(song) === 'custom' && applyCustomLyricState(song, true, renderOptions)) {
+    if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(true);
+    return;
+  }
   applyOriginalLyricsState(renderOptions);
   if (!silent) updateCustomLyricControls();
+  if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(true);
 }
 function setLyricSourceMode(mode, silent) {
   var song = currentLyricSong();
@@ -1002,6 +1014,7 @@ function setLyricSourceMode(mode, silent) {
   }
   if (!silent) showToast(mode === 'custom' ? '已切换到自定义歌词' : '已切换到原歌词');
   updateCustomLyricControls();
+  if (typeof broadcastCurrentLyricState === 'function') broadcastCurrentLyricState(true);
   return true;
 }
 function updateCustomLyricControls() {

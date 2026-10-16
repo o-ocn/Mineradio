@@ -274,18 +274,48 @@ async function defaultParseMetadata(filePath) {
   return module.parseFile(filePath, { duration: true, skipCovers: false });
 }
 
+const FOLDER_COVER_NAMES = [
+  'cover.jpg', 'cover.jpeg', 'cover.png', 'cover.webp',
+  'folder.jpg', 'folder.jpeg', 'folder.png',
+  'front.jpg', 'front.jpeg', 'front.png',
+  'album.jpg', 'album.jpeg', 'album.png'
+];
+const SIDECAR_LYRIC_EXTS = new Set(['.lrc', '.qrc', '.krc', '.vtt', '.ttml']);
+
 async function buildLrcSidecarIndex(entries) {
   const directories = Array.from(new Set(entries.map((entry) => path.dirname(entry.path))));
   const maps = new Map();
   await mapWithConcurrency(directories, METADATA_CONCURRENCY, async (directory) => {
     const lookup = new Map();
+    const translationLookup = new Map();
+    let folderCoverPath = '';
     try {
       const names = await fs.promises.readdir(directory);
+      for (const coverCandidate of FOLDER_COVER_NAMES) {
+        const found = names.find((n) => n.toLowerCase() === coverCandidate);
+        if (found) {
+          folderCoverPath = path.join(directory, found);
+          break;
+        }
+      }
       for (const name of names) {
-        if (path.extname(name).toLowerCase() !== '.lrc') continue;
-        lookup.set(path.basename(name, path.extname(name)).toLowerCase(), path.join(directory, name));
+        const lower = name.toLowerCase();
+        const ext = path.extname(lower);
+        if (/\.(t|trans)\.(lrc|vtt)$/i.test(lower)) {
+          const baseNoTrans = lower.replace(/\.(t|trans)\.(lrc|vtt)$/i, '');
+          translationLookup.set(baseNoTrans, path.join(directory, name));
+          continue;
+        }
+        if (!SIDECAR_LYRIC_EXTS.has(ext)) continue;
+        const base = path.basename(lower, ext);
+        if (!lookup.has(base) || ext === '.lrc') {
+          lookup.set(base, path.join(directory, name));
+        }
+        lookup.set(lower, path.join(directory, name));
       }
     } catch (_) {}
+    lookup.folderCoverPath = folderCoverPath;
+    lookup.translationLookup = translationLookup;
     maps.set(normalizedPathIdentity(directory), lookup);
   });
   return maps;
@@ -335,6 +365,7 @@ class LocalMusicLibrary {
           coverPath,
           coverMime: cleanText(source.coverMime, '', 100),
           lyric: cleanText(source.lyric, '', MAX_LYRIC_BYTES),
+          tlyric: cleanText(source.tlyric, '', MAX_LYRIC_BYTES),
           lyricSource: source.lyricSource === 'sidecar' ? 'sidecar' : (source.lyricSource === 'embedded' ? 'embedded' : ''),
           importedAt: Math.max(0, Number(source.importedAt) || 0),
         };
@@ -364,7 +395,8 @@ class LocalMusicLibrary {
       album: record.album || '',
       duration: Math.max(0, Number(record.duration) || 0),
       cover: coverAvailable ? localMediaUrl('cover', record.id, record.revision, this.mediaToken) : '',
-      hasLyric: !!record.lyric,
+      hasLyric: !!(record.lyric || record.tlyric),
+      hasTranslation: !!record.tlyric,
       lyricSource: record.lyricSource || '',
     };
   }
@@ -395,24 +427,57 @@ class LocalMusicLibrary {
     if (!record) return { ok: false, localFileId: id, lyric: '', lyricSource: '', missing: true, error: 'LOCAL_TRACK_MISSING' };
     let lyric = record.lyric || '';
     let lyricSource = record.lyricSource || '';
+    let tlyric = record.tlyric || '';
     if (!lyric && record.audioPath) {
-      const sidecar = record.audioPath.replace(/\.[^.]+$/, '.lrc');
-      try {
-        if (fs.existsSync(sidecar)) {
-          const content = decodeLyricBuffer(fs.readFileSync(sidecar)).slice(0, MAX_LYRIC_BYTES);
-          if (content) {
-            lyric = content;
-            lyricSource = 'sidecar';
-            record.lyric = lyric;
-            record.lyricSource = lyricSource;
+      const candidates = [
+        record.audioPath.replace(/\.[^.]+$/, '.lrc'),
+        record.audioPath.replace(/\.[^.]+$/, '.qrc'),
+        record.audioPath.replace(/\.[^.]+$/, '.krc'),
+        record.audioPath.replace(/\.[^.]+$/, '.vtt'),
+        record.audioPath.replace(/\.[^.]+$/, '.ttml'),
+        record.audioPath + '.lrc',
+        record.audioPath + '.qrc',
+      ];
+      for (const sidecar of candidates) {
+        try {
+          if (fs.existsSync(sidecar)) {
+            const content = decodeLyricBuffer(fs.readFileSync(sidecar)).slice(0, MAX_LYRIC_BYTES);
+            if (content) {
+              lyric = content;
+              lyricSource = 'sidecar';
+              record.lyric = lyric;
+              record.lyricSource = lyricSource;
+              break;
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
+    }
+    if (!tlyric && record.audioPath) {
+      const transCandidates = [
+        record.audioPath.replace(/\.[^.]+$/, '.t.lrc'),
+        record.audioPath.replace(/\.[^.]+$/, '.trans.lrc'),
+        record.audioPath.replace(/\.[^.]+$/, '.t.vtt'),
+        record.audioPath + '.t.lrc',
+      ];
+      for (const trPath of transCandidates) {
+        try {
+          if (fs.existsSync(trPath)) {
+            const trContent = decodeLyricBuffer(fs.readFileSync(trPath)).slice(0, MAX_LYRIC_BYTES);
+            if (trContent) {
+              tlyric = trContent;
+              record.tlyric = tlyric;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
     }
     return {
       ok: true,
       localFileId: id,
       lyric,
+      tlyric,
       lyricSource,
     };
   }
@@ -448,6 +513,38 @@ class LocalMusicLibrary {
     } catch (error) {
       safeUnlink(temporary);
       throw error;
+    }
+  }
+
+  async stageFolderCover(coverFilePath, previous) {
+    if (!coverFilePath) return null;
+    const cacheKey = normalizedPathIdentity(coverFilePath);
+    if (this.folderCoverCache && this.folderCoverCache.has(cacheKey)) {
+      return this.folderCoverCache.get(cacheKey);
+    }
+    try {
+      const stat = await fs.promises.stat(coverFilePath);
+      if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_COVER_BYTES) return null;
+      const ext = path.extname(coverFilePath).toLowerCase();
+      const mime = COVER_MIME_BY_EXTENSION.get(ext) || 'image/jpeg';
+      const extension = COVER_EXTENSION_BY_MIME.get(mime) || ext || '.jpg';
+      const data = await fs.promises.readFile(coverFilePath);
+      if (!coverWithinBudget(data, mime)) return null;
+      await fs.promises.mkdir(this.coverDirectory, { recursive: true });
+      const digest = crypto.createHash('sha256').update(data).digest('hex').slice(0, 16);
+      const folderId = crypto.createHash('sha256').update(normalizedPathIdentity(path.dirname(coverFilePath))).digest('hex').slice(0, 16);
+      const target = path.join(this.coverDirectory, `folder-${folderId}-${digest}${extension}`);
+      if (!fs.existsSync(target)) {
+        const temporary = path.join(this.coverDirectory, `.folder-${folderId}-${digest}.${process.pid}.${Date.now()}.stage`);
+        await fs.promises.writeFile(temporary, data);
+        await fs.promises.rename(temporary, target);
+      }
+      const res = { path: target, mime };
+      if (!this.folderCoverCache) this.folderCoverCache = new Map();
+      this.folderCoverCache.set(cacheKey, res);
+      return res;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -491,16 +588,29 @@ class LocalMusicLibrary {
     const common = metadata.common || {};
     const format = metadata.format || {};
     const fallbackTitle = path.basename(entry.path, path.extname(entry.path));
+    const fullAudioName = path.basename(entry.path).toLowerCase();
     const artists = Array.isArray(common.artists) ? common.artists.filter(Boolean).join(' / ') : '';
     const picture = Array.isArray(common.picture) && common.picture.length ? common.picture[0] : null;
-    const cover = metadataError
-      ? {
-        path: previous && previous.coverPath || '',
-        mime: previous && previous.coverMime || '',
-      }
-      : await this.stageCover(id, picture, previous);
+
     const directoryLookup = sidecarDirectories.get(normalizedPathIdentity(path.dirname(entry.path)));
-    const sidecarPath = directoryLookup && directoryLookup.get(fallbackTitle.toLowerCase());
+    const folderCoverPath = directoryLookup && directoryLookup.folderCoverPath;
+    let cover = null;
+    if (folderCoverPath) {
+      cover = await this.stageFolderCover(folderCoverPath, previous);
+    }
+    if (!cover || !cover.path) {
+      cover = metadataError
+        ? {
+          path: previous && previous.coverPath || '',
+          mime: previous && previous.coverMime || '',
+        }
+        : await this.stageCover(id, picture, previous);
+    }
+
+    const sidecarPath = directoryLookup && (
+      directoryLookup.get(fallbackTitle.toLowerCase()) ||
+      directoryLookup.get(fullAudioName)
+    );
     let lyric = '';
     let lyricSource = '';
     if (sidecarPath) {
@@ -512,6 +622,19 @@ class LocalMusicLibrary {
         }
       } catch (_) {}
     }
+    const translationSidecar = directoryLookup && directoryLookup.translationLookup && (
+      directoryLookup.translationLookup.get(fallbackTitle.toLowerCase()) ||
+      directoryLookup.translationLookup.get(fullAudioName)
+    );
+    let tlyric = '';
+    if (translationSidecar) {
+      try {
+        const trStat = await fs.promises.stat(translationSidecar);
+        if (trStat.isFile() && trStat.size > 0 && trStat.size <= MAX_LYRIC_BYTES) {
+          tlyric = decodeLyricBuffer(await fs.promises.readFile(translationSidecar)).slice(0, MAX_LYRIC_BYTES);
+        }
+      } catch (_) {}
+    }
     if (!lyric) {
       lyric = embeddedLyricText(common);
       if (lyric) lyricSource = 'embedded';
@@ -519,6 +642,9 @@ class LocalMusicLibrary {
     if (!lyric && metadataError && previous && previous.lyric) {
       lyric = previous.lyric;
       lyricSource = previous.lyricSource || '';
+    }
+    if (!tlyric && metadataError && previous && previous.tlyric) {
+      tlyric = previous.tlyric;
     }
     const relativeDirectory = path.dirname(entry.relativePath || '');
     const fallbackAlbum = relativeDirectory && relativeDirectory !== '.' ? relativeDirectory.split(/[\\/]/).join(' / ') : '';
@@ -537,6 +663,7 @@ class LocalMusicLibrary {
         coverPath: cover.path,
         coverMime: cover.mime,
         lyric,
+        tlyric,
         lyricSource,
         importedAt: Date.now(),
       },

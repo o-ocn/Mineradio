@@ -4632,10 +4632,70 @@ function loginEasterEggGateUnlocked() {
   }
 }
 
+let currentLyricBroadcastState = {
+  ok: true,
+  playing: false,
+  song: null,
+  currentTime: 0,
+  duration: 0,
+  currentLine: '',
+  currentLineTranslation: '',
+  currentLineIndex: -1,
+  words: [],
+  offset: 0,
+  updatedAt: Date.now(),
+};
+
 const server = http.createServer(async (req, res) => {
   refreshConfiguredCookieStores(false);
   const url = new URL(req.url, 'http://localhost:' + PORT);
   const pn = url.pathname;
+
+  if (pn === '/api/current-lyric' || pn === '/v1/lyric') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    if (req.method === 'POST') {
+      try {
+        const body = await readRequestBody(req);
+        if (body && typeof body === 'object') {
+          currentLyricBroadcastState = {
+            ok: true,
+            playing: !!body.playing,
+            song: body.song ? {
+              id: body.song.id || '',
+              name: body.song.name || body.song.title || '',
+              artist: body.song.artist || body.song.singer || '',
+              album: body.song.album || '',
+              duration: Number(body.song.duration) || 0,
+              cover: body.song.cover || '',
+              provider: body.song.provider || body.song.source || '',
+            } : null,
+            currentTime: Math.max(0, Number(body.currentTime) || 0),
+            duration: Math.max(0, Number(body.duration) || 0),
+            currentLine: String(body.currentLine || '').trim(),
+            currentLineTranslation: String(body.currentLineTranslation || '').trim(),
+            currentLineIndex: isFinite(Number(body.currentLineIndex)) ? Number(body.currentLineIndex) : -1,
+            words: Array.isArray(body.words) ? body.words : [],
+            offset: Number(body.offset) || 0,
+            updatedAt: Date.now(),
+          };
+          sendJSON(res, { ok: true });
+          return;
+        }
+      } catch (err) {
+        sendJSON(res, { ok: false, error: err.message }, 400);
+        return;
+      }
+    }
+    sendJSON(res, currentLyricBroadcastState);
+    return;
+  }
 
   if (pn === '/api/spotify' || pn.indexOf('/api/spotify/') === 0) {
     sendJSON(res, { ok: false, error: 'PROVIDER_REMOVED', message: '该平台接口已从 Mineradio 移除。' }, 404);

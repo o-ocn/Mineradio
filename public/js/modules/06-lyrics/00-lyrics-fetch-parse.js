@@ -273,15 +273,25 @@ function withLyricFallbackForSong(song, lines) {
 function parseLyricResponseToOriginalState(song, response) {
   response = response || {};
   var nativeLines = parseYrcText(response.yrc || '');
+  var qrcLines = parseLyricText(response.qrc || response.krc || '');
   var lrcLines = parseLyricText(response.lyric || '');
   var translationPayload = buildLyricTranslationPayload(response, lrcLines.translationLines);
   var translationLines = translationPayload.lines;
   var hasNativeKaraoke = nativeLines.some(function (line) { return line.words && line.words.length; })
+    || qrcLines.some(function (line) { return line.words && line.words.length; })
     || lrcLines.some(function (line) { return line.words && line.words.length; });
   var timingSource = hasNativeKaraoke
-    ? (nativeLines.some(function (line) { return line.words && line.words.length; }) ? 'yrc-word' : 'elrc-word')
-    : (nativeLines.length ? 'yrc-line' : (lrcLines.length ? 'lrc-line' : 'fallback'));
-  var primaryLines = nativeLines.length ? nativeLines : lrcLines;
+    ? (nativeLines.some(function (line) { return line.words && line.words.length; }) ? 'yrc-word' : (qrcLines.some(function (line) { return line.words && line.words.length; }) ? 'qrc-word' : 'elrc-word'))
+    : (nativeLines.length ? 'yrc-line' : (qrcLines.length ? 'qrc-line' : (lrcLines.length ? 'lrc-line' : 'fallback')));
+  var primaryLines = nativeLines.length ? nativeLines : (qrcLines.length ? qrcLines : lrcLines);
+  var staffCredits = (nativeLines && nativeLines.staffCredits && nativeLines.staffCredits.length)
+    ? nativeLines.staffCredits
+    : (qrcLines && qrcLines.staffCredits && qrcLines.staffCredits.length
+      ? qrcLines.staffCredits
+      : (lrcLines && lrcLines.staffCredits && lrcLines.staffCredits.length ? lrcLines.staffCredits : []));
+  if (song && staffCredits.length) {
+    song.staffCredits = staffCredits;
+  }
   var lines = withLyricFallbackForSong(song, attachLyricTranslations(primaryLines, translationLines));
   if (lines.length && lines[0].fallback) timingSource = 'fallback';
   return {
@@ -291,6 +301,7 @@ function parseLyricResponseToOriginalState(song, response) {
     translationLines: cloneLyricLines(translationLines),
     translationSource: translationPayload.source,
     usableLyric: hasUsableLyricLines(lines),
+    staffCredits: staffCredits,
     cachedAt: Date.now()
   };
 }
@@ -396,16 +407,39 @@ function finalizeLyricLineDurations(lines) {
   }
   return lines;
 }
+var STAFF_CREDITS_PREFIX_RE = /^(?:作\s*词|作\s*曲|编\s*曲|制\s*作\s*人|制\s*作|监\s*制|混\s*音|母\s*带|录\s*音|吉\s*他|贝\s*斯|鼓\s*手?|键\s*盘|和\s*声|出\s*品|发\s*行|策\s*划|企\s*划|统\s*筹|弦\s*乐|管\s*乐|录音室|混音室|母带室|声乐指导|配唱|合声|Programmer|OP|SP|Written\s+by|Lyrics?\s+by|Music\s+by|Composed?\s+by|Arranged?\s+by|Produced?\s+by|Producer|Mixed?\s+by|Mastered?\s+by|Recorded?\s+(?:at|by)|Vocals?\s+by|Acoustic\s+Guitar|Electric\s+Guitar|Bass|Drums|Backing\s+Vocals)\s*[:：]/i;
+
+function isStaffCreditLineText(text) {
+  var cleaned = String(text || '').trim();
+  if (!cleaned || cleaned.length > 120) return false;
+  return STAFF_CREDITS_PREFIX_RE.test(cleaned);
+}
+
 function parseEnhancedLrcLine(body, lineStartTime) {
   var tagReg = /<(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?>/g;
+  var qrcTagReg = /<(\d+),(\d+)(?:,\d+)?>/g;
   var wordTags = [];
   var m;
-  while ((m = tagReg.exec(body))) {
-    wordTags.push({
-      t: lyricTagTimeToSeconds(m[1], m[2], m[3]),
-      start: m.index,
-      end: tagReg.lastIndex
-    });
+  if (/<(\d+),(\d+)(?:,\d+)?>/.test(body)) {
+    while ((m = qrcTagReg.exec(body))) {
+      var rawMs = parseInt(m[1], 10) || 0;
+      var rawDurMs = parseInt(m[2], 10) || 0;
+      var absT = rawMs >= (lineStartTime * 1000) - 500 ? rawMs / 1000 : lineStartTime + (rawMs / 1000);
+      wordTags.push({
+        t: Math.max(0, absT),
+        d: Math.max(0.06, rawDurMs / 1000),
+        start: m.index,
+        end: qrcTagReg.lastIndex
+      });
+    }
+  } else {
+    while ((m = tagReg.exec(body))) {
+      wordTags.push({
+        t: lyricTagTimeToSeconds(m[1], m[2], m[3]),
+        start: m.index,
+        end: tagReg.lastIndex
+      });
+    }
   }
   if (!wordTags.length) return null;
 
@@ -422,7 +456,7 @@ function parseEnhancedLrcLine(body, lineStartTime) {
       }
       continue;
     }
-    var dur = next ? Math.max(0.06, next.t - cur.t) : 0.3;
+    var dur = cur.d || (next ? Math.max(0.06, next.t - cur.t) : 0.3);
     var c0 = fullText.length;
     fullText += wordText;
     words.push({
@@ -451,13 +485,13 @@ function parseEnhancedLrcLine(body, lineStartTime) {
 }
 
 function parseLyricText(text) {
-  var lines = [], reg = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]/g;
+  var lines = [], reg = /\[(?:(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?|(\d+),(\d+))\]/g;
   var rawEntries = [];
   String(text || '').split(/\r?\n/).forEach(function (line) {
     var tags = [], times = [], m;
     reg.lastIndex = 0;
     while ((m = reg.exec(line))) {
-      var t = lyricTagTimeToSeconds(m[1], m[2], m[3]);
+      var t = m[4] && m[5] ? (parseInt(m[4], 10) || 0) / 1000 : lyricTagTimeToSeconds(m[1], m[2], m[3]);
       times.push(t);
       tags.push({ t: t, index: m.index, end: reg.lastIndex });
     }
@@ -480,7 +514,7 @@ function parseLyricText(text) {
     }
     var body = line.replace(reg, '');
     if (!body.trim()) return;
-    var hasWordTags = /<\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?>/.test(body);
+    var hasWordTags = /<\d{1,2}:\d{1,2}(?:[.:]\d{1,3})?>|<\d+,\d+(?:,\d+)?>/.test(body);
     times.forEach(function (t) {
       rawEntries.push({ t: t, body: body, hasWordTags: hasWordTags });
     });
@@ -489,10 +523,12 @@ function parseLyricText(text) {
   if (!rawEntries.length) {
     lines.translationLines = [];
     lines.hasNativeKaraoke = false;
+    lines.staffCredits = [];
     return lines;
   }
   rawEntries.sort(function (a, b) { return a.t - b.t; });
 
+  var staffCredits = [];
   var primaryLines = [];
   var translationLines = [];
   var hasAnyKaraoke = rawEntries.some(function (e) { return e.hasWordTags; });
@@ -506,14 +542,18 @@ function parseLyricText(text) {
       if (entry.hasWordTags) {
         var parsed = parseEnhancedLrcLine(entry.body, entry.t);
         if (parsed) {
-          primaryLines.push({
-            t: entry.t,
-            duration: parsed.duration,
-            text: parsed.text,
-            words: parsed.words,
-            charCount: Math.max(1, parsed.text.length),
-            source: 'elrc-word'
-          });
+          if (isStaffCreditLineText(parsed.text)) {
+            staffCredits.push(parsed.text);
+          } else {
+            primaryLines.push({
+              t: entry.t,
+              duration: parsed.duration,
+              text: parsed.text,
+              words: parsed.words,
+              charCount: Math.max(1, parsed.text.length),
+              source: 'elrc-word'
+            });
+          }
         }
       } else {
         var isNearKaraoke = (prev && prev.hasWordTags && Math.abs(prev.t - entry.t) <= 0.08) ||
@@ -526,32 +566,53 @@ function parseLyricText(text) {
             source: 'lrc-trans'
           });
         } else if (cleanText) {
-          primaryLines.push({
-            t: entry.t,
-            duration: 4.8,
-            text: cleanText,
-            charCount: Math.max(1, cleanText.length),
-            source: 'lrc'
-          });
+          if (isStaffCreditLineText(cleanText)) {
+            staffCredits.push(cleanText);
+          } else {
+            primaryLines.push({
+              t: entry.t,
+              duration: 4.8,
+              text: cleanText,
+              charCount: Math.max(1, cleanText.length),
+              source: 'lrc'
+            });
+          }
         }
       }
     } else {
       var plain = entry.body.replace(/<[^>]+>/g, '').trim();
       if (plain) {
-        primaryLines.push({
-          t: entry.t,
-          duration: 4.8,
-          text: plain,
-          charCount: Math.max(1, plain.length),
-          source: 'lrc'
-        });
+        if (isStaffCreditLineText(plain)) {
+          staffCredits.push(plain);
+        } else {
+          primaryLines.push({
+            t: entry.t,
+            duration: 4.8,
+            text: plain,
+            charCount: Math.max(1, plain.length),
+            source: 'lrc'
+          });
+        }
       }
     }
+  }
+
+  if (!primaryLines.length && staffCredits.length) {
+    staffCredits.forEach(function (c, idx) {
+      primaryLines.push({
+        t: idx * 3,
+        duration: 3,
+        text: c,
+        charCount: Math.max(1, c.length),
+        source: 'lrc'
+      });
+    });
   }
 
   var finalized = finalizeLyricLineDurations(primaryLines);
   finalized.translationLines = finalizeLyricLineDurations(translationLines);
   finalized.hasNativeKaraoke = hasAnyKaraoke;
+  finalized.staffCredits = staffCredits;
   return finalized;
 }
 function normalizeLyricTranslationText(text) {
@@ -730,6 +791,7 @@ function attachLyricTranslations(primaryLines, translationLines) {
 }
 function parseYrcText(text) {
   var lines = [];
+  var staffCredits = [];
   String(text || '').split(/\r?\n/).forEach(function (line) {
     var m = line.match(/^\[(\d+),(\d+)\](.*)$/);
     if (!m) return;
@@ -752,6 +814,10 @@ function parseYrcText(text) {
     var leading = (fullText.match(/^\s+/) || [''])[0].length;
     fullText = fullText.replace(/\s+/g, ' ').trim();
     if (!fullText) return;
+    if (isStaffCreditLineText(fullText)) {
+      staffCredits.push(fullText);
+      return;
+    }
     if (words.length) {
       words.forEach(function (w) {
         w.c0 = Math.max(0, Math.min(fullText.length, w.c0 - leading));
@@ -761,7 +827,14 @@ function parseYrcText(text) {
     }
     lines.push({ t: lineStartMs / 1000, duration: lineDurMs / 1000, text: fullText, words: words, charCount: Math.max(1, fullText.length), source: words.length ? 'yrc-word' : 'yrc-line' });
   });
-  return finalizeLyricLineDurations(lines);
+  if (!lines.length && staffCredits.length) {
+    staffCredits.forEach(function (c, idx) {
+      lines.push({ t: idx * 3, duration: 3, text: c, words: [], charCount: Math.max(1, c.length), source: 'yrc-line' });
+    });
+  }
+  var finalized = finalizeLyricLineDurations(lines);
+  finalized.staffCredits = staffCredits;
+  return finalized;
 }
 function renderLyrics(options) {
   options = options || {};

@@ -283,3 +283,37 @@ test('renderer and Electron wiring restore persistent tracks instead of blob-onl
   assert.match(cover, /mineradio-local:\\\/\\\/cover/);
   assert.equal(packageJson.dependencies['music-metadata'], '11.14.0');
 });
+
+test('folder cover file takes priority over embedded cover and multi-format sidecar lyrics are discovered', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-local-folder-cover-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const albumDirectory = path.join(root, 'music', 'HiFiAlbum');
+  fs.mkdirSync(albumDirectory, { recursive: true });
+  const audioPath = path.join(albumDirectory, 'Track01.flac');
+  const folderCoverPath = path.join(albumDirectory, 'cover.png');
+  const lyricPath = path.join(albumDirectory, 'Track01.flac.lrc');
+  const transLyricPath = path.join(albumDirectory, 'Track01.t.lrc');
+
+  fs.writeFileSync(audioPath, minimalTaggedFlac());
+  fs.writeFileSync(folderCoverPath, ONE_PIXEL_PNG);
+  fs.writeFileSync(lyricPath, '[00:01.000]原版主歌\n[00:03.000]原版副歌', 'utf8');
+  fs.writeFileSync(transLyricPath, '[00:01.000]Translated Verse\n[00:03.000]Translated Chorus', 'utf8');
+
+  const library = new LocalMusicLibrary({ userDataPath: root });
+  const result = await library.importFiles([{ path: audioPath, relativePath: 'HiFiAlbum/Track01.flac' }]);
+  assert.equal(result.ok, true);
+  assert.equal(result.count, 1);
+  const track = result.tracks[0];
+  assert.equal(track.name, '标签标题');
+  assert.equal(track.hasLyric, true);
+  assert.equal(track.hasTranslation, true);
+
+  const lyricResult = library.lyricForTrack(track.id);
+  assert.equal(lyricResult.ok, true);
+  assert.match(lyricResult.lyric, /原版主歌/);
+  assert.match(lyricResult.tlyric, /Translated Verse/);
+
+  const record = library.records.get(track.localFileId);
+  assert.equal(record.coverPath.includes('folder-'), true);
+});
+

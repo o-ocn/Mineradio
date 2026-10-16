@@ -6,9 +6,9 @@ const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 
-// 默认内建 API Key（兼容 Last.fm 官方开放 API）
-const DEFAULT_API_KEY = 'b25b959554ed76058ac220b7b2e0a026';
-const DEFAULT_API_SECRET = '425b7747e90890696b998cfb62e49752';
+// 默认内建 API Key（兼容 Last.fm 官方开放 API 与桌面授权签名）
+const DEFAULT_API_KEY = '7bfc3993e87eb839bd1567bd2622dd56';
+const DEFAULT_API_SECRET = 'ff82c3593eb7f898c328cfb07bb696ec';
 
 function createTunnelAgent(proxyUrl) {
   if (!proxyUrl) return null;
@@ -70,11 +70,17 @@ class LastFmService {
     try {
       if (fs.existsSync(this.configFile)) {
         const raw = JSON.parse(fs.readFileSync(this.configFile, 'utf8'));
+        let apiKey = String(raw.apiKey || '').trim();
+        let apiSecret = String(raw.apiSecret || '').trim();
+        if (!apiKey || apiKey === 'b25b959554ed76058ac220b7b2e0a026' || !apiSecret || apiSecret === '425b7747e90890696b998cfb62e49752') {
+          apiKey = DEFAULT_API_KEY;
+          apiSecret = DEFAULT_API_SECRET;
+        }
         return {
           enabled: raw.enabled !== false,
           scrobbleEnabled: raw.scrobbleEnabled !== false,
-          apiKey: String(raw.apiKey || DEFAULT_API_KEY).trim(),
-          apiSecret: String(raw.apiSecret || DEFAULT_API_SECRET).trim(),
+          apiKey,
+          apiSecret,
           username: String(raw.username || '').trim(),
           sessionKey: String(raw.sessionKey || '').trim(),
         };

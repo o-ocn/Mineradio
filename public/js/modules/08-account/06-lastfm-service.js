@@ -393,7 +393,7 @@ async function startLastFmAuthFlow() {
 
   if (authBtn) authBtn.innerHTML = '<span>⏳ 正在唤起授权页面…</span>';
 
-  var fallbackAuthUrl = 'https://www.last.fm/api/auth/?api_key=b25b959554ed76058ac220b7b2e0a026';
+  var fallbackAuthUrl = 'https://www.last.fm/api/auth/?api_key=7bfc3993e87eb839bd1567bd2622dd56';
   var token = '';
 
   try {

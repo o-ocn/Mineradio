@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 
@@ -9,11 +10,60 @@ const crypto = require('crypto');
 const DEFAULT_API_KEY = 'b25b959554ed76058ac220b7b2e0a026';
 const DEFAULT_API_SECRET = '425b7747e90890696b998cfb62e49752';
 
+function createTunnelAgent(proxyUrl) {
+  if (!proxyUrl) return null;
+  try {
+    const parsed = new URL(proxyUrl.includes('://') ? proxyUrl : 'http://' + proxyUrl);
+    return new https.Agent({
+      keepAlive: true,
+      createConnection(options, callback) {
+        const connectReq = http.request({
+          host: parsed.hostname,
+          port: parsed.port || 80,
+          method: 'CONNECT',
+          path: options.host + ':' + (options.port || 443),
+          headers: { Host: options.host + ':' + (options.port || 443) }
+        });
+        connectReq.on('connect', (res, socket) => {
+          if (res.statusCode !== 200) {
+            callback(new Error('Proxy CONNECT failed: ' + res.statusCode));
+            return;
+          }
+          callback(null, socket);
+        });
+        connectReq.on('error', err => callback(err));
+        connectReq.setTimeout(6000, () => {
+          connectReq.destroy();
+          callback(new Error('Proxy CONNECT timeout'));
+        });
+        connectReq.end();
+      }
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
 class LastFmService {
   constructor(options = {}) {
     this.userDataPath = path.resolve(String(options.userDataPath || path.join(__dirname, '..', 'data')));
     this.configFile = path.join(this.userDataPath, 'lastfm-config.json');
     this.config = this.readConfig();
+    this.pendingToken = '';
+    this.alwaysUseProxy = false;
+    this.proxyUrl = options.proxyUrl || '';
+    this._proxyAgent = null;
+    this._cachedProxy = '';
+  }
+
+  getAgent(useProxy) {
+    if (!useProxy && !this.alwaysUseProxy) return undefined;
+    const proxy = this.proxyUrl || process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || process.env.ALL_PROXY || '127.0.0.1:7897';
+    if (!this._proxyAgent || this._cachedProxy !== proxy) {
+      this._cachedProxy = proxy;
+      this._proxyAgent = createTunnelAgent(proxy);
+    }
+    return this._proxyAgent || undefined;
   }
 
   readConfig() {
@@ -74,7 +124,7 @@ class LastFmService {
     return crypto.createHash('md5').update(str, 'utf8').digest('hex');
   }
 
-  request(method, params = {}, isPost = false) {
+  request(method, params = {}, isPost = false, allowRetry = true) {
     return new Promise((resolve) => {
       const apiKey = this.config.apiKey || DEFAULT_API_KEY;
       const allParams = Object.assign({
@@ -106,11 +156,25 @@ class LastFmService {
         headers['Content-Length'] = Buffer.byteLength(postData);
       }
 
-      const req = https.request(url, {
+      const agent = this.getAgent(this.alwaysUseProxy);
+      const reqOptions = {
         method: isPost ? 'POST' : 'GET',
         headers,
         timeout: 10000,
-      }, (res) => {
+      };
+      if (agent) reqOptions.agent = agent;
+
+      const onFailed = async (errMsg) => {
+        if (allowRetry && !this.alwaysUseProxy) {
+          this.alwaysUseProxy = true;
+          const retryRes = await this.request(method, params, isPost, false);
+          resolve(retryRes);
+          return;
+        }
+        resolve({ ok: false, error: errMsg });
+      };
+
+      const req = https.request(url, reqOptions, (res) => {
         let body = '';
         res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => {
@@ -128,12 +192,12 @@ class LastFmService {
       });
 
       req.on('error', (err) => {
-        resolve({ ok: false, error: err.message || 'NETWORK_ERROR' });
+        onFailed(err.message || 'NETWORK_ERROR');
       });
 
       req.on('timeout', () => {
         req.destroy();
-        resolve({ ok: false, error: 'TIMEOUT' });
+        onFailed('TIMEOUT');
       });
 
       if (isPost) {
@@ -157,6 +221,7 @@ class LastFmService {
     }, true);
     if (res.ok && res.data && res.data.token) {
       const token = res.data.token;
+      this.pendingToken = token;
       const apiKey = this.config.apiKey || DEFAULT_API_KEY;
       const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
       return { ok: true, token, authUrl };
@@ -166,6 +231,7 @@ class LastFmService {
   }
 
   async createSession(token) {
+    token = (token || this.pendingToken || '').trim();
     if (!token) return { ok: false, error: 'MISSING_TOKEN' };
     const res = await this.request('auth.getSession', {
       method: 'auth.getSession',
@@ -174,13 +240,14 @@ class LastFmService {
 
     if (res.ok && res.data && res.data.session) {
       const session = res.data.session;
+      this.pendingToken = '';
       this.saveConfig({
         username: session.name,
         sessionKey: session.key,
       });
       return { ok: true, username: session.name, sessionKey: session.key };
     }
-    return { ok: false, error: res.error || 'AUTH_GET_SESSION_FAILED' };
+    return { ok: false, error: res.error || 'AUTH_GET_SESSION_FAILED', code: res.code };
   }
 
   async updateNowPlaying(trackInfo = {}) {

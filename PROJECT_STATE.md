@@ -120,6 +120,8 @@
 - [x] **YouTube Music 原生系统默认浏览器登录与门禁解锁彻底闭环**：
   - **彻底移除彩蛋门禁拦截**：定位并拔除 `server.js` 中 `LOGIN_EASTER_EGG_PROTECTED_ROUTES` 与 `loginEasterEggGateUnlocked` 导致的 423 拦截（彻底根除导致登录窗口关闭后界面红字报错“请先完成登录彩蛋解密”、Cookie 无法持久化落盘的核心根因）；
   - **调用系统原生默认浏览器**：在 `desktop/main.js` 与 `desktop/preload.js` 接入 `ytmusic-open-system-browser`（通过 `shell.openExternal('https://music.youtube.com')` 原生打开系统默认浏览器），避免用户在独立弹窗内重复输入账号密码与 2FA；
+  - **启动与面板状态同步补全**：在 `05-startup-bindings.js` 的 `startupLoginStatusPromise` 中补齐 `refreshYtmusicLoginStatus()` 并激活 `startYtmusicLoginStatusAutoRefresh()`；在唤起登录面板 (`resumeLoginModalAfterGate`) 与切换 YT 节点 (`selectLoginProviderNode`) 时主动同步状态，彻底根除后端已存会话但前端未刷新仍显示未登录的脱节问题；
+  - **连接按钮智能自适应与双模同步**：点击连接按钮时优先自适应检测现有后端状态与 Electron 独立会话分区，已存会话 0 步秒级完成绑定；未存会话时调用系统默认浏览器并展示清晰引导，附带【使用内置独立窗口登录】一键自动捕获按钮，兼顾外部浏览器安全性与内置窗口便利性；
   - **剪贴板一键同步与 CORS 全域开放**：自动将轻量一键同步指令写入系统剪贴板，并在 `server.js` 针对 `/api/ytmusic/*` 全域开放 CORS 与 OPTIONS 204，用户只需在浏览器控制台（Console）按 F12 粘贴回车即可秒连 Mineradio 本地服务；
   - **自动状态监听与备用内置窗口**：前端后台以 1.5s 轮询监听 `/api/ytmusic/status`，检测到凭据写入后自动点亮账号状态并平滑关闭弹窗；同时提供去除了 `forceReauth` 强制清空逻辑的备用内置窗口与手动 Cookie 导入。
 

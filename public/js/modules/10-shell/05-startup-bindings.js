@@ -39,9 +39,10 @@ if (fx.floatLayer) createFloatLayer();
 if (fx.particleLyrics) createLyricsParticles();
 if (fx.backCover) createBackCoverLayer();
 initIdleGuideCanvas();
-var startupLoginStatusPromise = Promise.all([refreshLoginStatus(), refreshQQLoginStatus({ forceVip: true, reason: 'startup' }), refreshKugouLoginStatus(), refreshQishuiLoginStatus(), persistedLocalLibraryRestorePromise, builtInPlaylistRestorePromise]);
+var startupLoginStatusPromise = Promise.all([refreshLoginStatus(), refreshQQLoginStatus({ forceVip: true, reason: 'startup' }), refreshKugouLoginStatus(), refreshYtmusicLoginStatus(), refreshQishuiLoginStatus(), persistedLocalLibraryRestorePromise, builtInPlaylistRestorePromise]);
 startQQLoginStatusAutoRefresh();
 startKugouLoginStatusAutoRefresh();
+startYtmusicLoginStatusAutoRefresh();
 startQishuiLoginStatusAutoRefresh();
 if (typeof setupFullscreenDiyLayoutTracking === 'function') setupFullscreenDiyLayoutTracking();
 if (startupLoginStatusPromise && startupLoginStatusPromise.then) {

@@ -117,15 +117,23 @@
   - **消除右键/播放卡顿**：彻底解耦 Canvas 2D 纹理重绘与每帧动画/音乐律动；移除 `pulseBucket` 和 `dofBucket` 触发的频繁 `drawCard` 与 `texImage2D` GPU 纹理上传，景深与动效完全移交 GPU 材质着色器执行，右键唤出与切歌满帧流畅；
   - **消除黑色黑框**：大幅调亮卡片层级材质漫反射系数（由暗沉的 `0.25` 提升至 `0.68~0.78`）；在无封面或封面加载中时绘制精致黑胶唱片同心圆与 `♪` / `MR` 矢量符号，彻底终结黑框视觉缺陷。
 
+- [x] **YouTube Music 原生系统默认浏览器登录与门禁解锁彻底闭环**：
+  - **彻底移除彩蛋门禁拦截**：定位并拔除 `server.js` 中 `LOGIN_EASTER_EGG_PROTECTED_ROUTES` 与 `loginEasterEggGateUnlocked` 导致的 423 拦截（彻底根除导致登录窗口关闭后界面红字报错“请先完成登录彩蛋解密”、Cookie 无法持久化落盘的核心根因）；
+  - **调用系统原生默认浏览器**：在 `desktop/main.js` 与 `desktop/preload.js` 接入 `ytmusic-open-system-browser`（通过 `shell.openExternal('https://music.youtube.com')` 原生打开系统默认浏览器），避免用户在独立弹窗内重复输入账号密码与 2FA；
+  - **剪贴板一键同步与 CORS 全域开放**：自动将轻量一键同步指令写入系统剪贴板，并在 `server.js` 针对 `/api/ytmusic/*` 全域开放 CORS 与 OPTIONS 204，用户只需在浏览器控制台（Console）按 F12 粘贴回车即可秒连 Mineradio 本地服务；
+  - **自动状态监听与备用内置窗口**：前端后台以 1.5s 轮询监听 `/api/ytmusic/status`，检测到凭据写入后自动点亮账号状态并平滑关闭弹窗；同时提供去除了 `forceReauth` 强制清空逻辑的备用内置窗口与手动 Cookie 导入。
+
 ### 实测验证记录
 - **自动化测试命令**：
   ```bash
   node scripts/quick-check.js
   node --test tests/local-music-library-persistence.test.js
+  node --test tests/provider-login-state-recovery.test.js
   ```
 - **实测证据**：
   - `node scripts/quick-check.js`：106 个客户端模块全量解析通过，全套白盒守卫检测 100% 全绿通过（All checks passed clean）；
   - `node --test tests/local-music-library-persistence.test.js`：7 项测试全部通过（通过率 100%，耗时 ~300ms）；
+  - `node --test tests/provider-login-state-recovery.test.js`：10 项测试全部通过（通过率 100%，耗时 ~150ms）；
   - 覆盖项包括：底栏控制完整性、无残留冗余门禁、新版首页四模块、右下角悬停零反馈、全沉浸三栏绝对对称网格、纯原生 JS 语法完整性、文件夹封面优先级与外挂翻译歌词关联。
 
 ---
@@ -147,6 +155,8 @@
   *原因*：原实现为每首歌抽取内嵌封面，同一张专辑 50 首歌会导致 50 份重复图片写盘与内存暴增。采用 `cover.jpg/png` 优先与目录级哈希缓存，同一目录几十首歌共用 1 份缓存，曲库导入速度与内存占用显著改善。
 - **决定 7：演职员信息剥离出歌词流，下沉至「歌曲详情」（借鉴 Folia）**  
   *原因*：传统歌词将作词/作曲/编曲等信息当成前几行歌词，导致前奏期间舞台持续滚动无歌词信息的制作人名单。将其智能提取为 `staffCredits` 并在详情弹窗以 Chip 形式呈现，前奏期间舞台更加纯净。
+- **决定 8：YouTube Music 登录优先调用系统原生默认浏览器**  
+  *原因*：用户日常通常已在 Windows 系统的默认浏览器（Chrome / Edge）中登录好了 Google / YouTube Music。如果使用内嵌 Electron 窗口，受限于分区隔离或反复二次验证，用户体验极差。通过原生唤起系统默认浏览器配合 CORS 本地回传与一键同步指令，实现无需重复输入账号密码即可秒级同步。
 
 ### 2. 已尝试但已放弃的方案（★ 严禁后续 AI 重复踩坑）
 - **放弃方案 1：在底部播放器保留音量滑动条与次级控制按钮**  
@@ -158,6 +168,9 @@
 - **放弃方案 3：首页常驻大型未绑定 Last.fm 推广卡片**  
   *尝试背景*：原版在未配置时占用首页显著面积提示绑定。  
   *失败/放弃原因*：干扰日常听歌视线。已改造为右上角轻量「发现新歌」毛玻璃按钮 + 专属轻量模态框，保持首页干净。
+- **放弃方案 4：在 YouTube Music 登录中使用强制清空会话 (forceReauth: true)**  
+  *尝试背景*：旧设计每次打开登录弹窗都清空 storageData，试图保持纯净会话。  
+  *失败/放弃原因*：导致用户每次都得重新输入账号、密码与两步验证，极度繁琐；且配合同步接口未解密的彩蛋门禁导致窗口关闭后 Cookie 丢弃。已彻底移除强制抹除逻辑。
 
 ---
 

@@ -3008,14 +3008,19 @@ async function readYtmusicLoginCookieHeader(cookieSession) {
   }
 }
 
+async function openYtmusicSystemBrowserLogin() {
+  const targetUrl = 'https://music.youtube.com';
+  try {
+    await shell.openExternal(targetUrl);
+    return { ok: true, url: targetUrl };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 async function openYtmusicLoginWindow(owner, options) {
   options = options && typeof options === 'object' ? options : {};
   const cookieSession = session.fromPartition(YTMUSIC_LOGIN_PARTITION);
-  if (options.forceReauth === true) {
-    await cookieSession.clearStorageData({
-      storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
-    });
-  }
   const initialCookie = await readYtmusicLoginCookieHeader(cookieSession);
   if (/SAPISID|__Secure-3PAPISID|SID=/i.test(initialCookie)) {
     const ytmusicApi = require('../ytmusic-api');
@@ -4998,6 +5003,10 @@ ipcMain.handle('kugou-music-clear-login', async () => {
 
 ipcMain.handle('ytmusic-open-login', async (event, options) => {
   return openYtmusicLoginWindow(getSenderWindow(event), options || {});
+});
+
+ipcMain.handle('ytmusic-open-system-browser', async () => {
+  return openYtmusicSystemBrowserLogin();
 });
 
 ipcMain.handle('ytmusic-clear-login', async () => {

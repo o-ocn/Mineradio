@@ -141,8 +141,6 @@ const LOGIN_EASTER_EGG_PROTECTED_ROUTES = new Set([
   '/api/login/qr/check',
   '/api/qq/login/cookie',
   '/api/kugou/login/cookie',
-  '/api/ytmusic/login/cookie',
-  '/api/ytmusic/cookie',
   '/api/qishui/login/qrcode',
   '/api/qishui/login/check',
 ]);
@@ -4635,16 +4633,7 @@ async function handlePlatformListenReport(body) {
 //  HTTP Server
 // ====================================================================
 function loginEasterEggGateUnlocked() {
-  if (!LOGIN_EASTER_EGG_GATE_FILE) return true;
-  try {
-    const state = JSON.parse(fs.readFileSync(LOGIN_EASTER_EGG_GATE_FILE, 'utf8')) || {};
-    return state.gateVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      state.cookieResetVersion === LOGIN_EASTER_EGG_GATE_VERSION &&
-      state.resetComplete === true &&
-      state.unlocked === true;
-  } catch (_) {
-    return false;
-  }
+  return true;
 }
 
 let currentLyricBroadcastState = {
@@ -4665,6 +4654,17 @@ const server = http.createServer(async (req, res) => {
   refreshConfiguredCookieStores(false);
   const url = new URL(req.url, 'http://localhost:' + PORT);
   const pn = url.pathname;
+
+  if (pn.startsWith('/api/ytmusic/')) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+  }
 
   if (pn === '/api/current-lyric' || pn === '/v1/lyric') {
     res.setHeader('Access-Control-Allow-Origin', '*');

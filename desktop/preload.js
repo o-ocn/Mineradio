@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   openKugouMusicLogin: (options) => ipcRenderer.invoke('kugou-music-open-login', options || {}),
   clearKugouMusicLogin: () => ipcRenderer.invoke('kugou-music-clear-login'),
   openYtmusicLogin: (options) => ipcRenderer.invoke('ytmusic-open-login', options || {}),
+  openYtmusicSystemBrowser: () => ipcRenderer.invoke('ytmusic-open-system-browser'),
   clearYtmusicLogin: () => ipcRenderer.invoke('ytmusic-clear-login'),
   openPath: (targetPath) => ipcRenderer.invoke('mineradio-open-path', String(targetPath || '')),
   clearQishuiMusicLogin: () => ipcRenderer.invoke('qishui-music-clear-login'),

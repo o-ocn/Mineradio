@@ -1385,7 +1385,7 @@
           <div><b>登录接入</b><small>拖接口端口到 MR</small></div>
           <button id="login-reset-all-btn" class="login-reset-all-btn" type="button"
             onclick="logoutAllAccounts()" title="退出已登录平台">退出登录</button>
-          <button class="login-panel-close" type="button" onclick="closeLoginModal()">×</button>
+          <button class="login-panel-close" type="button" onclick="closeLoginModal()" title="关闭" aria-label="关闭"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
         <div id="login-node-graph" class="login-node-graph" data-provider="netease">
           <svg id="login-workflow-svg" class="workflow-link-layer login-link-layer" aria-hidden="true"></svg>
@@ -1395,7 +1395,7 @@
             <button id="login-provider-qq" class="qq workflow-node" type="button" data-login-provider="qq" onclick="selectLoginProviderNode('qq')"><span
                 class="provider-logo">QQ</span><b>QQ 音乐</b><small>官方扫码 / Cookie</small><span class="flow-port out" data-login-provider-output="qq" title="拖到 MR 接入口"></span></button>
             <button id="login-provider-ytmusic" class="ytmusic workflow-node" type="button" data-login-provider="ytmusic" onclick="selectLoginProviderNode('ytmusic')"><span
-                class="provider-logo">YT</span><b>YouTube Music</b><small>系统浏览器 / Cookie / 直连</small><span class="flow-port out" data-login-provider-output="ytmusic" title="拖到 MR 接入口"></span></button>
+                class="provider-logo">YT</span><b>YouTube Music</b><small>官方窗口 / 账号登录 / 免登</small><span class="flow-port out" data-login-provider-output="ytmusic" title="拖到 MR 接入口"></span></button>
             <button id="login-provider-qishui" class="qishui workflow-node" type="button" data-login-provider="qishui" onclick="selectLoginProviderNode('qishui')"><span
                 class="provider-logo">QS</span><b>汽水音乐</b><small>官方扫码 / 抖音确认</small><span class="flow-port out" data-login-provider-output="qishui" title="拖到 MR 接入口"></span></button>
           </div>
@@ -1448,7 +1448,7 @@
       <div class="modal audio-output-workflow-modal">
         <div class="login-panel-head">
           <div><b>音频路由</b><small>Patch Bay</small></div>
-          <button class="login-panel-close" type="button" onclick="closeAudioOutputWorkflowPanel()">×</button>
+          <button class="login-panel-close" type="button" onclick="closeAudioOutputWorkflowPanel()" title="关闭" aria-label="关闭"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
         <div class="audio-output-workflow-title">
           <b>音频路由</b>

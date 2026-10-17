@@ -117,13 +117,12 @@
   - **消除右键/播放卡顿**：彻底解耦 Canvas 2D 纹理重绘与每帧动画/音乐律动；移除 `pulseBucket` 和 `dofBucket` 触发的频繁 `drawCard` 与 `texImage2D` GPU 纹理上传，景深与动效完全移交 GPU 材质着色器执行，右键唤出与切歌满帧流畅；
   - **消除黑色黑框**：大幅调亮卡片层级材质漫反射系数（由暗沉的 `0.25` 提升至 `0.68~0.78`）；在无封面或封面加载中时绘制精致黑胶唱片同心圆与 `♪` / `MR` 矢量符号，彻底终结黑框视觉缺陷。
 
-- [x] **YouTube Music 原生系统默认浏览器登录与门禁解锁彻底闭环**：
-  - **彻底移除彩蛋门禁拦截**：定位并拔除 `server.js` 中 `LOGIN_EASTER_EGG_PROTECTED_ROUTES` 与 `loginEasterEggGateUnlocked` 导致的 423 拦截（彻底根除导致登录窗口关闭后界面红字报错“请先完成登录彩蛋解密”、Cookie 无法持久化落盘的核心根因）；
-  - **调用系统原生默认浏览器**：在 `desktop/main.js` 与 `desktop/preload.js` 接入 `ytmusic-open-system-browser`（通过 `shell.openExternal('https://music.youtube.com')` 原生打开系统默认浏览器），避免用户在独立弹窗内重复输入账号密码与 2FA；
-  - **启动与面板状态同步补全**：在 `05-startup-bindings.js` 的 `startupLoginStatusPromise` 中补齐 `refreshYtmusicLoginStatus()` 并激活 `startYtmusicLoginStatusAutoRefresh()`；在唤起登录面板 (`resumeLoginModalAfterGate`) 与切换 YT 节点 (`selectLoginProviderNode`) 时主动同步状态，彻底根除后端已存会话但前端未刷新仍显示未登录的脱节问题；
-  - **连接按钮智能自适应与双模同步**：点击连接按钮时优先自适应检测现有后端状态与 Electron 独立会话分区，已存会话 0 步秒级完成绑定；未存会话时调用系统默认浏览器并展示清晰引导，附带【使用内置独立窗口登录】一键自动捕获按钮，兼顾外部浏览器安全性与内置窗口便利性；
-  - **剪贴板一键同步与 CORS 全域开放**：自动将轻量一键同步指令写入系统剪贴板，并在 `server.js` 针对 `/api/ytmusic/*` 全域开放 CORS 与 OPTIONS 204，用户只需在浏览器控制台（Console）按 F12 粘贴回车即可秒连 Mineradio 本地服务；
-  - **自动状态监听与备用内置窗口**：前端后台以 1.5s 轮询监听 `/api/ytmusic/status`，检测到凭据写入后自动点亮账号状态并平滑关闭弹窗；同时提供去除了 `forceReauth` 强制清空逻辑的备用内置窗口与手动 Cookie 导入。
+- [x] **YouTube Music 内置官方独立窗口登录贯通与登录弹窗 UI 全面美化**：
+  - **根除后端 writeHead 致命 500 报错**：排查并彻底解决 `server.js` 中分发 `handleYtmusicStatus`、`handleYtmusicCookie` 与 `handleYtmusicLogout` 时未传 `res` 参数、导致解构 `res.writeHead` 抛出 `Cannot read properties of undefined` 从而使前端弹红框的致命 Bug；
+  - **彻底废除外部浏览器与 F12 代码粘贴方案**：响应所有者偏好，全面转向 Electron 原生内置独立窗口登录（BrowserWindow），去除了强制清空，用户在官方窗口登录后自动无感捕获并持久记住 Cookie，点亮连接状态并支持无账号直接搜索播放；
+  - **登录模态框 UI 风格与色彩重构**：彻底消除此前混入的 QQ 音乐黄绿色调，注入纯正 YouTube 官方红透暗黑玻璃拟态高光（`#ff4438`、`rgba(255, 0, 51, .24)` 与悬停光晕）；
+  - **修复抽屉宽度挤压与文字截断缺陷**：默认收起 Cookie 输入区保持界面整洁大方；在展开 Cookie 面板时将抽屉拓宽至 300px 并自适应隐藏卡片，彻底消灭输入框被压扁、说明文字单字折行与按钮文字被截断为“保存 Co”的界面缺陷；
+  - **弹窗右上角关闭按钮统一升级**：全面换掉原版简陋文字 `×`，升级为带 30px 圆形微边框与极简矢量 SVG 图标的 `.login-panel-close`，与全局其他模态框 100% 视觉对齐。
 
 ### 实测验证记录
 - **自动化测试命令**：
@@ -157,8 +156,8 @@
   *原因*：原实现为每首歌抽取内嵌封面，同一张专辑 50 首歌会导致 50 份重复图片写盘与内存暴增。采用 `cover.jpg/png` 优先与目录级哈希缓存，同一目录几十首歌共用 1 份缓存，曲库导入速度与内存占用显著改善。
 - **决定 7：演职员信息剥离出歌词流，下沉至「歌曲详情」（借鉴 Folia）**  
   *原因*：传统歌词将作词/作曲/编曲等信息当成前几行歌词，导致前奏期间舞台持续滚动无歌词信息的制作人名单。将其智能提取为 `staffCredits` 并在详情弹窗以 Chip 形式呈现，前奏期间舞台更加纯净。
-- **决定 8：YouTube Music 登录优先调用系统原生默认浏览器**  
-  *原因*：用户日常通常已在 Windows 系统的默认浏览器（Chrome / Edge）中登录好了 Google / YouTube Music。如果使用内嵌 Electron 窗口，受限于分区隔离或反复二次验证，用户体验极差。通过原生唤起系统默认浏览器配合 CORS 本地回传与一键同步指令，实现无需重复输入账号密码即可秒级同步。
+- **决定 8：全面采用 Electron 内置独立窗口捕获 YouTube Music 会话 Cookie**  
+  *原因*：Windows 外部浏览器因系统级安全隔离无法对外直接导出 HttpOnly 会话凭据，要求用户按 F12 打开开发者控制台粘贴 JavaScript 代码体验粗糙且易造成打扰；采用 Electron 内置 BrowserWindow（隔离分区）能够原生自动提取完整登录态 Cookie，一次登录永久记住，全流程丝滑无感。
 
 ### 2. 已尝试但已放弃的方案（★ 严禁后续 AI 重复踩坑）
 - **放弃方案 1：在底部播放器保留音量滑动条与次级控制按钮**  
@@ -173,6 +172,9 @@
 - **放弃方案 4：在 YouTube Music 登录中使用强制清空会话 (forceReauth: true)**  
   *尝试背景*：旧设计每次打开登录弹窗都清空 storageData，试图保持纯净会话。  
   *失败/放弃原因*：导致用户每次都得重新输入账号、密码与两步验证，极度繁琐；且配合同步接口未解密的彩蛋门禁导致窗口关闭后 Cookie 丢弃。已彻底移除强制抹除逻辑。
+- **放弃方案 5：要求用户调用外部浏览器并在控制台按 F12 粘贴同步脚本**  
+  *尝试背景*：曾试图通过系统浏览器打开 YouTube Music 避开 Electron 内置登录窗口。  
+  *失败/放弃原因*：外部浏览器安全沙箱限制导致 Cookie 无法自动回传，让普通用户去按 F12 打开 Console 粘贴 fetch 代码极具违和感且易失败。所有者明确指示弃用外部浏览器，全面采用内置独立窗口。
 
 ---
 

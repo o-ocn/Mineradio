@@ -30,7 +30,7 @@ function loginProviderOfficialModeText(provider) {
   provider = normalizeLoginProviderKey(provider);
   if (provider === 'spotify') return { title: 'OAuth', sub: '弹出 Spotify 授权窗口' };
   if (provider === 'qishui') return { title: '扫码', sub: '使用抖音 App 官方授权' };
-  if (provider === 'ytmusic') return { title: '浏览器', sub: '系统原生浏览器 / 免登' };
+  if (provider === 'ytmusic') return { title: '官方', sub: '内置窗口登录 / 免登' };
   if (provider === 'kugou') return { title: '官网', sub: '弹出酷狗官方窗口' };
   return { title: '扫码', sub: '连接后弹出官方窗口' };
 }
@@ -1009,7 +1009,7 @@ function updateLoginProviderUi() {
   if (desc) desc.innerHTML = isQQ
     ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
     : (isYtmusic
-      ? '支持调用<b>系统原生默认浏览器</b>同步已登录的 YouTube Music 会话；也可使用内置独立窗口或粘贴 Cookie。免登亦可直接搜索播放！'
+      ? '打开 <b>YouTube Music 官方内置窗口</b> 登录并自动同步会话；免登录亦可直接搜索播放！'
     : (isKugou
       ? '打开 <b>酷狗音乐官方网页登录窗口</b> 登录，成功后会自动同步账号会话。'
     : (isQishui
@@ -1023,6 +1023,12 @@ function updateLoginProviderUi() {
     shell.classList.toggle('web-login-preview', useWebPreview);
     shell.classList.toggle('qq-preview', isQQ);
     shell.classList.toggle('netease-preview', isNetease && canOpenNeteaseWeb);
+    shell.classList.toggle('ytmusic-preview', isYtmusic);
+  }
+  var drawer = document.getElementById('login-auth-drawer');
+  if (drawer) {
+    drawer.classList.toggle('cookie-open', isManualCookieProvider && manualCookieOpen);
+    drawer.classList.toggle('ytmusic-mode', isYtmusic);
   }
   if (qqPanel) qqPanel.classList.toggle('show', isManualCookieProvider && manualCookieOpen);
   if (qqCookieToggle) {
@@ -1036,7 +1042,7 @@ function updateLoginProviderUi() {
       : (isNetease ? 'MUSIC_U=...; __csrf=...' : 'uin=...; qqmusic_key=...; qm_keyst=...'));
   if (qqCookieNote) {
     if (isYtmusic) {
-      qqCookieNote.innerHTML = '<div style="margin-bottom:4px">从 <b>music.youtube.com</b> 导入 Cookie，或在浏览器按 F12 粘贴同步指令。</div><div style="font-size:11px;opacity:0.8"><a href="javascript:void(0)" onclick="openYtmusicEmbeddedWindowLogin()" style="color:var(--accent-color, #ff4081);text-decoration:underline;">使用内置独立窗口登录</a></div>';
+      qqCookieNote.innerHTML = '<div style="margin-bottom:4px">从 <b>music.youtube.com</b> 复制 Cookie 粘贴至上方。</div><div style="font-size:11px;opacity:0.85">支持 SAPISID / SID 等格式；使用官方内置窗口登录可自动免导。</div>';
     } else {
       qqCookieNote.textContent = isKugou
         ? '从 kugou.com 的登录会话导入。'
@@ -1053,7 +1059,7 @@ function updateLoginProviderUi() {
     if (cardLabel) cardLabel.textContent = isQQ
       ? (qqWebLoginBusy ? '等待扫码确认' : (qqLoginStatus.loggedIn ? '重新打开官方窗口同步会员' : '打开官方扫码窗口'))
       : (isYtmusic
-        ? (ytmusicWebLoginBusy ? '正在连接…' : (ytmusicLoginStatus.loggedIn ? '在浏览器中切换账号' : '登录 YouTube Music'))
+        ? (ytmusicWebLoginBusy ? '正在登录…' : (ytmusicLoginStatus.loggedIn ? '重新打开窗口切换账号' : '打开官方登录窗口'))
       : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '打开官方登录窗口') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口'))));
   }
   if (st) {
@@ -1062,7 +1068,7 @@ function updateLoginProviderUi() {
       st.textContent = isQQ
         ? qqLoginStatusText(qqLoginStatus)
         : (isYtmusic
-          ? (ytmusicLoginStatus.loggedIn ? ('已连接 YouTube Music · ' + (ytmusicLoginStatus.nickname || 'Google 账号')) : '已在系统浏览器登录？点击一键连接；若未同步可使用内置窗口')
+          ? (ytmusicLoginStatus.loggedIn ? ('已连接 YouTube Music · ' + (ytmusicLoginStatus.nickname || 'Google 账号')) : '点击右侧“打开官方登录窗口”登录；支持无账号直接搜索播放')
         : (isKugou
           ? (kugouLoginStatus.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouLoginStatus.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口')
           : (isQishui
@@ -1077,7 +1083,7 @@ function updateLoginProviderUi() {
       qqLoginStatus.playbackKeyReady === false
     );
     var qqNeedsMembershipSync = isQQ && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(qqLoginStatus);
-    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isYtmusic ? (ytmusicWebLoginBusy ? '连接中…' : (ytmusicLoginStatus.loggedIn ? '重新同步' : '连接登录')) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码'))));
+    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isYtmusic ? (ytmusicWebLoginBusy ? '登录中…' : (ytmusicLoginStatus.loggedIn ? '重新连接' : '打开登录窗口')) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码'))));
     refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isYtmusic ? openYtmusicWebLogin : (isKugou ? openKugouWebLogin : (canOpenNeteaseWeb ? openNeteaseWebLogin : refreshQr))));
   }
   updateLoginNodeGraphUi();
@@ -1519,121 +1525,41 @@ function startYtmusicSyncWatcher() {
 
 var ytmusicBrowserSyncActive = false;
 async function openYtmusicWebLogin() {
-  if (ytmusicWebLoginBusy) return;
-  var statusEl = document.getElementById('qr-status');
-  var api = typeof window !== 'undefined' ? window.desktopWindow : null;
-
-  ytmusicWebLoginBusy = true;
-  updateLoginProviderUi();
-
-  // 1. Check if already logged in locally or in backend
-  if (ytmusicLoginStatus && ytmusicLoginStatus.loggedIn) {
-    ytmusicWebLoginBusy = false;
-    updateLoginProviderUi();
-    showToast('YouTube Music 已处于连接状态: ' + (ytmusicLoginStatus.nickname || 'Google 账号'));
-    closeLoginModal();
-    return;
-  }
-  if (typeof refreshYtmusicLoginStatus === 'function') {
-    var currentInfo = await refreshYtmusicLoginStatus();
-    if (currentInfo && currentInfo.loggedIn) {
-      ytmusicWebLoginBusy = false;
-      updateLoginProviderUi();
-      showToast('YouTube Music 已连接: ' + (currentInfo.nickname || 'Google 账号'));
-      closeLoginModal();
-      return;
-    }
-  }
-
-  // 2. Try restoring existing session from Electron partition without opening a window!
-  if (api && typeof api.openYtmusicLogin === 'function') {
-    try {
-      var checkRes = await api.openYtmusicLogin({ forceReauth: false });
-      if (checkRes && checkRes.ok && checkRes.cookie) {
-        var info = await apiJson('/api/ytmusic/cookie', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cookie: checkRes.cookie })
-        });
-        if (info && info.loggedIn) {
-          ytmusicLoginStatus = normalizeYtmusicLoginStatus(info);
-          activeAccountProvider = 'ytmusic';
-          ytmusicManualCookieOpen = false;
-          ytmusicBrowserSyncActive = false;
-          ytmusicWebLoginBusy = false;
-          renderUserBtn();
-          refreshUserPlaylists(true);
-          showToast('YouTube Music 已连接: ' + (info.nickname || 'Google 账号'));
-          closeLoginModal();
-          return;
-        }
-      }
-    } catch (_) {}
-  }
-
-  // 3. Fallback: prompt external browser and/or internal window
-  ytmusicBrowserSyncActive = true;
-  ytmusicManualCookieOpen = true;
-
-  var origin = (typeof window !== 'undefined' && window.location && window.location.origin) || 'http://localhost:3000';
-  var syncSnippet = "fetch('" + origin + "/api/ytmusic/cookie',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookie:document.cookie})}).then(function(r){return r.json();}).then(function(d){alert(d.loggedIn?'🎉 YouTube Music 会话已同步至 Mineradio！':'❌ 同步失败: '+(d.message||d.error));}).catch(function(e){alert('❌ 连接失败: '+e.message);});";
-  if (api && typeof api.copyText === 'function') {
-    api.copyText(syncSnippet);
-  } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(syncSnippet).catch(function () {});
-  }
-
-  var opened = false;
-  try {
-    if (api && typeof api.openYtmusicSystemBrowser === 'function') {
-      var res = await api.openYtmusicSystemBrowser();
-      opened = res && res.ok;
-    } else if (api && typeof api.openExternal === 'function') {
-      await api.openExternal('https://music.youtube.com');
-      opened = true;
-    }
-  } catch (_) {}
-  if (!opened && typeof window !== 'undefined') {
-    try { window.open('https://music.youtube.com', '_blank'); opened = true; } catch (_) {}
-  }
-
-  if (statusEl) {
-    statusEl.innerHTML =
-      '<div style="font-weight:600;color:var(--text-bright,#fff);margin-bottom:6px;">🌐 已在浏览器打开 YouTube Music！</div>' +
-      '<div style="font-size:12px;line-height:1.6;color:rgba(255,255,255,0.88);">' +
-        '⚠️ <b>重要说明</b>：系统外部浏览器（Edge/Chrome）有安全隔离，不会自动把 Cookie 发回软件。<br>' +
-        '👉 <b>两种方式同步到软件中</b>：<br>' +
-        '<div style="margin:6px 0;"><button type="button" class="modal-btn primary" onclick="openYtmusicEmbeddedWindowLogin()" style="padding:4px 14px;font-size:12px;cursor:pointer;">⚡ 使用内置独立窗口登录（自动捕获，永久记住）</button></div>' +
-        '若在外部浏览器使用：按 <b>F12</b> 打开控制台，<b>Ctrl+V</b> 粘贴刚刚已自动复制的指令并回车即可瞬间连通！' +
-      '</div>';
-    statusEl.className = 'preview';
-  }
-
-  startYtmusicSyncWatcher();
-  ytmusicWebLoginBusy = false;
-  updateLoginProviderUi();
+  return openYtmusicEmbeddedWindowLogin({
+    forceReauth: !!(ytmusicLoginStatus && ytmusicLoginStatus.loggedIn)
+  });
 }
 
-async function openYtmusicEmbeddedWindowLogin() {
+async function openYtmusicEmbeddedWindowLogin(options) {
   if (ytmusicWebLoginBusy) return;
+  options = options || {};
   var statusEl = document.getElementById('qr-status');
   var api = typeof window !== 'undefined' ? window.desktopWindow : null;
   if (!api || !api.isDesktop || typeof api.openYtmusicLogin !== 'function') {
     ytmusicManualCookieOpen = true;
     updateLoginProviderUi();
-    if (statusEl) { statusEl.textContent = '当前环境不支持内置独立窗口，请在系统浏览器中登录或手动粘贴 Cookie。'; statusEl.className = 'fail'; }
+    if (statusEl) {
+      statusEl.textContent = '当前环境不支持内置独立窗口，可手动粘贴 Cookie 导入。';
+      statusEl.className = 'fail';
+    }
     return;
   }
 
   ytmusicWebLoginBusy = true;
   updateLoginProviderUi();
-  if (statusEl) { statusEl.textContent = '已打开 YouTube Music 官方内置窗口，请完成登录…'; statusEl.className = 'preview'; }
+  if (statusEl) {
+    statusEl.textContent = '已打开 YouTube Music 官方内置窗口，请在窗口中登录…';
+    statusEl.className = 'preview';
+  }
   try {
-    var result = await api.openYtmusicLogin({ forceReauth: false });
+    var result = await api.openYtmusicLogin(options);
     if (!result || !result.ok || !result.cookie) {
       throw new Error((result && (result.message || result.error)) || 'YouTube Music 登录未完成');
     }
-    if (statusEl) { statusEl.textContent = '正在同步 YouTube Music 会话…'; statusEl.className = 'preview'; }
+    if (statusEl) {
+      statusEl.textContent = '正在同步 YouTube Music 会话…';
+      statusEl.className = 'preview';
+    }
     var info = await apiJson('/api/ytmusic/cookie', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1645,15 +1571,21 @@ async function openYtmusicEmbeddedWindowLogin() {
     ytmusicManualCookieOpen = false;
     renderUserBtn();
     refreshUserPlaylists(true);
-    if (statusEl) { statusEl.textContent = 'YouTube Music 会话已保存'; statusEl.className = 'scan'; }
+    if (statusEl) {
+      statusEl.textContent = 'YouTube Music 会话已保存 · ' + (info.nickname || 'Google 账号');
+      statusEl.className = 'scan';
+    }
+    showToast('YouTube Music 已连接: ' + (info.nickname || 'Google 账号'));
     setTimeout(function () {
       closeLoginModal();
-      showToast('YouTube Music 已连接: ' + (info.nickname || 'Google 账号'));
     }, 420);
   } catch (e) {
     ytmusicWebLoginBusy = false;
     updateLoginProviderUi();
-    if (statusEl) { statusEl.textContent = e && e.message ? e.message : 'YouTube Music 登录失败'; statusEl.className = 'fail'; }
+    if (statusEl) {
+      statusEl.textContent = e && e.message ? e.message : 'YouTube Music 登录失败';
+      statusEl.className = 'fail';
+    }
   } finally {
     if (ytmusicWebLoginBusy) {
       ytmusicWebLoginBusy = false;

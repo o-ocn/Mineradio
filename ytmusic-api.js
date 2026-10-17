@@ -188,13 +188,21 @@ async function getYtmusicStatus() {
 
 async function handleYtmusicStatus(req, res) {
   const status = await getYtmusicStatus();
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify({ ok: true, ...status }));
+  if (res && typeof res.writeHead === 'function') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, ...status }));
+    return;
+  }
+  return { ok: true, ...status };
 }
 
 async function handleYtmusicCookie(req, res, body) {
   let cookieStr = '';
-  if (typeof body === 'string') {
+  if (typeof req === 'string') {
+    cookieStr = req;
+  } else if (req && typeof req === 'object' && req.cookie) {
+    cookieStr = req.cookie;
+  } else if (typeof body === 'string') {
     try {
       const parsed = JSON.parse(body);
       cookieStr = parsed.cookie || '';
@@ -207,25 +215,40 @@ async function handleYtmusicCookie(req, res, body) {
 
   cookieStr = String(cookieStr || '').trim();
   if (!cookieStr) {
-    res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: false, error: 'COOKIE_EMPTY', message: 'Cookie 不能为空' }));
-    return;
+    if (res && typeof res.writeHead === 'function') {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'COOKIE_EMPTY', message: 'Cookie 不能为空' }));
+      return;
+    }
+    return { ok: false, error: 'COOKIE_EMPTY', message: 'Cookie 不能为空' };
   }
 
   const ok = writeYtmusicCookie(cookieStr);
   if (ok) {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, message: 'YouTube Music 会话已保存', loggedIn: true }));
+    if (res && typeof res.writeHead === 'function') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, message: 'YouTube Music 会话已保存', loggedIn: true }));
+      return;
+    }
+    return { ok: true, message: 'YouTube Music 会话已保存', loggedIn: true };
   } else {
-    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: false, error: 'SAVE_FAILED', message: '保存失败' }));
+    if (res && typeof res.writeHead === 'function') {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'SAVE_FAILED', message: '保存失败' }));
+      return;
+    }
+    return { ok: false, error: 'SAVE_FAILED', message: '保存失败' };
   }
 }
 
 async function handleYtmusicLogout(req, res) {
   clearYtmusicCookie();
-  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify({ ok: true, message: '已退出 YouTube Music' }));
+  if (res && typeof res.writeHead === 'function') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, message: '已退出 YouTube Music' }));
+    return;
+  }
+  return { ok: true, message: '已退出 YouTube Music' };
 }
 
 async function handleYtmusicSearch(keyword) {

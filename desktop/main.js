@@ -3022,7 +3022,11 @@ async function openYtmusicLoginWindow(owner, options) {
   options = options && typeof options === 'object' ? options : {};
   const cookieSession = session.fromPartition(YTMUSIC_LOGIN_PARTITION);
   const initialCookie = await readYtmusicLoginCookieHeader(cookieSession);
-  if (/SAPISID|__Secure-3PAPISID|SID=/i.test(initialCookie)) {
+  if (options.forceReauth) {
+    await cookieSession.clearStorageData({
+      storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
+    });
+  } else if (/SAPISID|__Secure-3PAPISID|SID=/i.test(initialCookie)) {
     const ytmusicApi = require('../ytmusic-api');
     ytmusicApi.writeYtmusicCookie(initialCookie);
     return { ok: true, cookie: initialCookie, reused: true };

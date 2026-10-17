@@ -113,7 +113,7 @@
           <button id="search-mode-netease" type="button" onclick="setSearchMode('netease')"
             aria-selected="false">NE</button>
           <button id="search-mode-qq" type="button" onclick="setSearchMode('qq')" aria-selected="false">QQ</button>
-          <button id="search-mode-kugou" type="button" onclick="setSearchMode('kugou')" aria-selected="false">KG</button>
+          <button id="search-mode-ytmusic" type="button" onclick="setSearchMode('ytmusic')" aria-selected="false">YT</button>
           <button id="search-mode-qishui" type="button" onclick="setSearchMode('qishui')" aria-selected="false">QS</button>
           <button id="search-mode-podcast" type="button" onclick="setSearchMode('podcast')"
             aria-selected="false">Podcast</button>
@@ -1394,8 +1394,8 @@
               onclick="selectLoginProviderNode('netease')"><span class="provider-logo">NE</span><b>网易云</b><small>官方扫码 / Cookie</small><span class="flow-port out" data-login-provider-output="netease" title="拖到 MR 接入口"></span></button>
             <button id="login-provider-qq" class="qq workflow-node" type="button" data-login-provider="qq" onclick="selectLoginProviderNode('qq')"><span
                 class="provider-logo">QQ</span><b>QQ 音乐</b><small>官方扫码 / Cookie</small><span class="flow-port out" data-login-provider-output="qq" title="拖到 MR 接入口"></span></button>
-            <button id="login-provider-kugou" class="kugou workflow-node" type="button" data-login-provider="kugou" onclick="selectLoginProviderNode('kugou')"><span
-                class="provider-logo">KG</span><b>酷狗音乐</b><small>官方窗口 / Cookie</small><span class="flow-port out" data-login-provider-output="kugou" title="拖到 MR 接入口"></span></button>
+            <button id="login-provider-ytmusic" class="ytmusic workflow-node" type="button" data-login-provider="ytmusic" onclick="selectLoginProviderNode('ytmusic')"><span
+                class="provider-logo">YT</span><b>YouTube Music</b><small>官方登录 / Cookie / 直连</small><span class="flow-port out" data-login-provider-output="ytmusic" title="拖到 MR 接入口"></span></button>
             <button id="login-provider-qishui" class="qishui workflow-node" type="button" data-login-provider="qishui" onclick="selectLoginProviderNode('qishui')"><span
                 class="provider-logo">QS</span><b>汽水音乐</b><small>官方扫码 / 抖音确认</small><span class="flow-port out" data-login-provider-output="qishui" title="拖到 MR 接入口"></span></button>
           </div>
@@ -1477,17 +1477,32 @@
           <button id="user-provider-netease" class="netease active" type="button"
             onclick="setActiveAccountProvider('netease')">网易云</button>
           <button id="user-provider-qq" class="qq" type="button" onclick="setActiveAccountProvider('qq')">QQ 音乐</button>
-          <button id="user-provider-kugou" class="kugou" type="button" onclick="setActiveAccountProvider('kugou')">酷狗音乐</button>
+          <button id="user-provider-ytmusic" class="ytmusic" type="button" onclick="setActiveAccountProvider('ytmusic')">YouTube Music</button>
           <button id="user-provider-qishui" class="qishui" type="button" onclick="setActiveAccountProvider('qishui')">汽水音乐</button>
-          <button id="user-provider-both" class="both" type="button" onclick="enableDualAccountView()">我两个都要</button>
+          <button id="user-provider-both" class="both" type="button" onclick="enableDualAccountView()">我都要</button>
         </div>
         <div class="account-modal-actions">
           <button id="account-add-netease" class="modal-btn" onclick="openProviderLogin('netease')">补登网易云</button>
           <button id="account-add-qq" class="modal-btn" onclick="openProviderLogin('qq')">补登 QQ 音乐</button>
-          <button id="account-add-kugou" class="modal-btn" onclick="openProviderLogin('kugou')">补登酷狗音乐</button>
+          <button id="account-add-ytmusic" class="modal-btn" onclick="openProviderLogin('ytmusic')">登录 YouTube Music</button>
           <button id="account-add-qishui" class="modal-btn" onclick="openProviderLogin('qishui')">登录汽水音乐</button>
         </div>
-        <div id="account-hint" class="account-hint">QQ 音乐真实登录暂未接入，当前先预览双平台账号交互。</div>
+        <div id="account-hint" class="account-hint">可随时在各平台间自由切换，支持多音源无缝接力播放。</div>
+
+        <!-- Mineradio 专属统一缓存设置卡片 -->
+        <div class="user-cache-settings-card" id="user-modal-cache-card">
+          <div class="user-cache-settings-head">
+            <span class="user-cache-title">📁 本地缓存目录 (MineradioCache)</span>
+            <span id="user-cache-total-size" class="user-cache-size-tag">统计中...</span>
+          </div>
+          <code id="user-cache-current-path" class="user-cache-path-display">正在读取...</code>
+          <div class="user-cache-actions">
+            <button class="modal-btn" type="button" onclick="chooseMineradioCacheRoot()">选择新位置</button>
+            <button class="modal-btn" type="button" onclick="openMineradioCacheFolder()">打开文件夹</button>
+            <button class="modal-btn" type="button" onclick="refreshMineradioCacheSettings()">刷新占用</button>
+          </div>
+        </div>
+
         <div class="btn-row">
           <button class="modal-btn" onclick="closeUserModal()">关闭</button>
           <button id="account-logout-btn" class="modal-btn primary" onclick="logoutActiveAccount()">退出当前平台</button>
@@ -1627,6 +1642,7 @@
         <div id="local-beat-desc" class="local-beat-desc"></div>
         <div id="local-beat-status" class="local-beat-status"></div>
         <div class="btn-row">
+          <button id="local-beat-batch-btn" class="modal-btn" type="button" onclick="startBatchLocalBeatAnalysis(localBeatAnalysis.mode)" title="在后台分析整个本地音乐库">后台分析整个曲库</button>
           <button id="local-beat-later-btn" class="modal-btn" onclick="closeLocalBeatModal()">暂不分析</button>
           <button id="local-beat-cancel-btn" class="modal-btn" onclick="cancelLocalBeatAnalysis()"
             style="display:none">取消</button>

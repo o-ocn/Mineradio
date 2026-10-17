@@ -134,6 +134,8 @@ const QQ_LOGIN_FALLBACK_URL = 'https://y.qq.com/';
 const KUGOU_LOGIN_PARTITION = 'persist:mineradio-kugou-login';
 const KUGOU_LOGIN_URL = 'https://www.kugou.com/';
 const KUGOU_LOGIN_WARMUP_URL = 'https://www.kugou.com/newuc/user/uc/type=edit';
+const YTMUSIC_LOGIN_PARTITION = 'persist:mineradio-ytmusic-login';
+const YTMUSIC_LOGIN_URL = 'https://music.youtube.com/';
 const SPOTIFY_LOGIN_PARTITION = 'persist:mineradio-spotify-login';
 const SPOTIFY_OAUTH_TIMEOUT_MS = 3 * 60 * 1000;
 
@@ -2987,6 +2989,131 @@ async function clearKugouMusicLoginSession() {
   return { ok: true };
 }
 
+async function readYtmusicLoginCookieHeader(cookieSession) {
+  try {
+    const ytCookies = await cookieSession.cookies.get({ domain: '.youtube.com' });
+    const googleCookies = await cookieSession.cookies.get({ domain: '.google.com' });
+    const all = ytCookies.concat(googleCookies);
+    const seen = new Set();
+    const pairs = [];
+    for (const c of all) {
+      if (!seen.has(c.name)) {
+        seen.add(c.name);
+        pairs.push(`${c.name}=${c.value}`);
+      }
+    }
+    return pairs.join('; ');
+  } catch (_) {
+    return '';
+  }
+}
+
+async function openYtmusicLoginWindow(owner, options) {
+  options = options && typeof options === 'object' ? options : {};
+  const cookieSession = session.fromPartition(YTMUSIC_LOGIN_PARTITION);
+  if (options.forceReauth === true) {
+    await cookieSession.clearStorageData({
+      storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
+    });
+  }
+  const initialCookie = await readYtmusicLoginCookieHeader(cookieSession);
+  if (/SAPISID|__Secure-3PAPISID|SID=/i.test(initialCookie)) {
+    const ytmusicApi = require('../ytmusic-api');
+    ytmusicApi.writeYtmusicCookie(initialCookie);
+    return { ok: true, cookie: initialCookie, reused: true };
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let pollTimer = null;
+
+    const loginWindow = new BrowserWindow({
+      width: 960,
+      height: 720,
+      minWidth: 760,
+      minHeight: 560,
+      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      modal: false,
+      show: false,
+      autoHideMenuBar: true,
+      title: 'YouTube Music 登录',
+      backgroundColor: '#0f0f0f',
+      icon: APP_ICON_ICO,
+      webPreferences: {
+        partition: YTMUSIC_LOGIN_PARTITION,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    const finish = async (result) => {
+      if (settled) return;
+      settled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (loginWindow && !loginWindow.isDestroyed()) loginWindow.close();
+      resolve(result);
+    };
+
+    const checkCookies = async () => {
+      try {
+        const cookie = await readYtmusicLoginCookieHeader(cookieSession);
+        if (/SAPISID|__Secure-3PAPISID|SID=/i.test(cookie)) {
+          const ytmusicApi = require('../ytmusic-api');
+          ytmusicApi.writeYtmusicCookie(cookie);
+          finish({ ok: true, cookie });
+        }
+      } catch (e) {
+        console.warn('YTMusic login cookie check error:', e.message);
+      }
+    };
+
+    loginWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url)) {
+        loginWindow.loadURL(url).catch(() => {});
+      } else {
+        shell.openExternal(url).catch(() => {});
+      }
+      return { action: 'deny' };
+    });
+
+    loginWindow.webContents.on('did-finish-load', () => {
+      checkCookies();
+    });
+
+    loginWindow.on('ready-to-show', () => loginWindow.show());
+    loginWindow.on('closed', async () => {
+      if (settled) return;
+      if (pollTimer) clearInterval(pollTimer);
+      try {
+        const cookie = await readYtmusicLoginCookieHeader(cookieSession);
+        if (/SAPISID|__Secure-3PAPISID|SID=/i.test(cookie)) {
+          const ytmusicApi = require('../ytmusic-api');
+          ytmusicApi.writeYtmusicCookie(cookie);
+          resolve({ ok: true, cookie });
+        } else {
+          resolve({ ok: false, cancelled: true, message: 'YouTube Music 登录窗口已关闭' });
+        }
+      } catch (e) {
+        resolve({ ok: false, error: e.message || 'YouTube Music 登录窗口已关闭' });
+      }
+    });
+
+    pollTimer = setInterval(checkCookies, 1500);
+    loginWindow.loadURL(YTMUSIC_LOGIN_URL).catch((e) => finish({ ok: false, error: e.message }));
+  });
+}
+
+async function clearYtmusicLoginSession() {
+  const cookieSession = session.fromPartition(YTMUSIC_LOGIN_PARTITION);
+  await cookieSession.clearStorageData({
+    storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
+  });
+  const ytmusicApi = require('../ytmusic-api');
+  ytmusicApi.clearYtmusicCookie();
+  return { ok: true };
+}
+
 async function clearNeteaseMusicLoginSession() {
   const cookieSession = session.fromPartition(NETEASE_LOGIN_PARTITION);
   await cookieSession.clearStorageData({
@@ -4867,6 +4994,24 @@ ipcMain.handle('kugou-music-open-login', async (event, options) => {
 
 ipcMain.handle('kugou-music-clear-login', async () => {
   return clearKugouMusicLoginSession();
+});
+
+ipcMain.handle('ytmusic-open-login', async (event, options) => {
+  return openYtmusicLoginWindow(getSenderWindow(event), options || {});
+});
+
+ipcMain.handle('ytmusic-clear-login', async () => {
+  return clearYtmusicLoginSession();
+});
+
+ipcMain.handle('mineradio-open-path', async (_event, targetPath) => {
+  try {
+    if (!targetPath) return { ok: false, error: 'NO_PATH' };
+    const res = await shell.openPath(String(targetPath));
+    return { ok: !res, error: res };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle('qishui-music-clear-login', async () => {

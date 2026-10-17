@@ -382,6 +382,60 @@ function startKugouLoginStatusAutoRefresh() {
   }, 45000);
 }
 
+var ytmusicLoginStatus = { provider: 'ytmusic', loggedIn: false, preview: false, nickname: 'YouTube Music', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, playbackKeyReady: true };
+var ytmusicLoginWasLoggedIn = false;
+var ytmusicLoginAutoRefreshTimer = null;
+var ytmusicPlaylists = [];
+
+function normalizeYtmusicLoginStatus(info) {
+  info = info && typeof info === 'object' ? info : {};
+  var loggedIn = !!info.loggedIn;
+  return {
+    provider: 'ytmusic',
+    loggedIn: loggedIn,
+    preview: !loggedIn,
+    nickname: info.nickname || (loggedIn ? 'YouTube Music' : 'YouTube Music (未登录)'),
+    userId: info.userId || '',
+    avatar: info.avatar || '',
+    vipType: 0,
+    vipLevel: loggedIn ? 'vip' : 'none',
+    isVip: loggedIn,
+    isSvip: false,
+    playbackKeyReady: true,
+    stale: !!info.stale
+  };
+}
+
+async function refreshYtmusicLoginStatus() {
+  try {
+    var info = await apiJson('/api/ytmusic/status?t=' + Date.now());
+    var prevLogged = !!(ytmusicLoginStatus && ytmusicLoginStatus.loggedIn);
+    ytmusicLoginStatus = normalizeYtmusicLoginStatus(info);
+    if (!ytmusicLoginStatus.loggedIn) {
+      if (prevLogged || ytmusicLoginWasLoggedIn) showToast('YouTube Music 账号已退出');
+      ytmusicPlaylists = [];
+      userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'ytmusic'; });
+      playlistCatalogRevision += 1;
+    } else if (!userPlaylists.some(function (pl) { return pl && pl.provider === 'ytmusic'; })) {
+      refreshUserPlaylists(true);
+    }
+    ytmusicLoginWasLoggedIn = !!ytmusicLoginStatus.loggedIn;
+    if (!hasPlatformLogin(activeAccountProvider)) activeAccountProvider = firstLoggedProvider();
+    renderUserBtn();
+    return ytmusicLoginStatus;
+  } catch (e) {
+    console.warn('YTMusic login status check error:', e);
+    return ytmusicLoginStatus;
+  }
+}
+
+function startYtmusicLoginStatusAutoRefresh() {
+  if (ytmusicLoginAutoRefreshTimer) clearInterval(ytmusicLoginAutoRefreshTimer);
+  ytmusicLoginAutoRefreshTimer = setInterval(function () {
+    refreshYtmusicLoginStatus().catch(function () {});
+  }, 60000);
+}
+
 function normalizeQishuiLoginStatus(info) {
   var fallback = { provider: 'qishui', loggedIn: false, configured: false, oauthConfigured: false, oauthMissing: [], preview: false, nickname: '汽水音乐', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false, stale: false, playbackKeyReady: false, playbackMode: 'recommend-match', searchReady: false, publicCatalog: false };
   var configured = !!(info && (info.configured || info.loggedIn));

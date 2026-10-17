@@ -752,11 +752,12 @@ function searchIntentPrefersQQ(q) {
   q = String(q || '').toLowerCase();
   return /(^|\s)qq($|\s)|qq音乐|qq音樂/.test(q);
 }
-var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'kugou', 'qishui'];
+var MUSIC_SEARCH_PROVIDER_ORDER = ['netease', 'qq', 'ytmusic', 'qishui'];
 function searchProviderStatus(provider) {
   if (typeof platformStatus === 'function') return platformStatus(provider);
   if (provider === 'spotify') return spotifyLoginStatus;
   if (provider === 'qishui') return qishuiLoginStatus;
+  if (provider === 'ytmusic') return ytmusicLoginStatus;
   if (provider === 'kugou') return kugouLoginStatus;
   if (provider === 'qq') return qqLoginStatus;
   return loginStatus;
@@ -772,10 +773,10 @@ function searchProviderCanSearch(provider) {
   if (provider === 'spotify') return !!(st.loggedIn && !st.reauthRequired);
   // These providers expose public catalogue metadata search. Login still controls
   // private recommendations, collections and playback rights, not discovery.
-  return provider === 'netease' || provider === 'qq' || provider === 'kugou' || provider === 'qishui';
+  return provider === 'netease' || provider === 'qq' || provider === 'ytmusic' || provider === 'kugou' || provider === 'qishui';
 }
 function searchModeProvider(mode) {
-  return mode === 'netease' || mode === 'qq' || mode === 'kugou' || mode === 'qishui' ? mode : '';
+  return mode === 'netease' || mode === 'qq' || mode === 'ytmusic' || mode === 'kugou' || mode === 'qishui' ? mode : '';
 }
 function activeSearchProvidersForMode(mode) {
   var specific = searchModeProvider(mode);
@@ -793,6 +794,7 @@ function searchProviderLoginNotice(mode) {
 function searchProviderUrl(provider, q, limit, offset) {
   var suffix = '&limit=' + limit + '&offset=' + Math.max(0, Number(offset) || 0);
   if (provider === 'qq') return '/api/qq/search?keywords=' + encodeURIComponent(q) + suffix;
+  if (provider === 'ytmusic') return '/api/ytmusic/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'kugou') return '/api/kugou/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'qishui') return '/api/qishui/search?keywords=' + encodeURIComponent(q) + suffix;
   if (provider === 'spotify') return '/api/spotify/search?keywords=' + encodeURIComponent(q) + suffix;
@@ -1078,7 +1080,7 @@ async function fetchMusicSearchResults(q, mode, previousPages) {
   Object.keys(previousPages || {}).forEach(function (provider) {
     providerPages[provider] = Object.assign({}, previousPages[provider]);
   });
-  var pageLimitByProvider = { netease: 18, qq: 12, kugou: 12, qishui: 12, spotify: 10 };
+  var pageLimitByProvider = { netease: 18, qq: 12, ytmusic: 14, kugou: 12, qishui: 12, spotify: 10 };
   var fetchProviders = providers.filter(function (provider) {
     return !previousPages || !previousPages[provider] || previousPages[provider].hasMore;
   });
@@ -1090,7 +1092,7 @@ async function fetchMusicSearchResults(q, mode, previousPages) {
       return { provider: provider, offset: offset, requestedLimit: limit, value: value || {} };
     });
   }));
-  var songsByProvider = { netease: [], qq: [], kugou: [], qishui: [], spotify: [] };
+  var songsByProvider = { netease: [], qq: [], ytmusic: [], kugou: [], qishui: [], spotify: [] };
   fetchProviders.forEach(function (provider, index) {
     var entry = result[index];
     if (!entry || entry.status !== 'fulfilled') {
@@ -1119,10 +1121,11 @@ async function fetchMusicSearchResults(q, mode, previousPages) {
     songsByProvider[provider] = songs;
     if (value.message && !songs.length && !searchProviderNotice) searchProviderNotice = value.message;
   });
+  var mergedKugouOrYt = (songsByProvider.ytmusic && songsByProvider.ytmusic.length ? songsByProvider.ytmusic : songsByProvider.kugou) || [];
   var songs = mergeSongSearchResults(
     songsByProvider.netease,
     songsByProvider.qq,
-    songsByProvider.kugou,
+    mergedKugouOrYt,
     songsByProvider.qishui,
     songsByProvider.spotify,
     MUSIC_SEARCH_MAX_RESULTS,

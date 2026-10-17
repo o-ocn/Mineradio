@@ -116,12 +116,11 @@ function makeShelfManager() {
     item = item || {};
     var rec = item.cover ? playlistCoverCache[item.cover] : null;
     var coverState = item.cover ? (rec && rec.loaded ? 'ready' : (rec && rec.failed ? 'fail' : 'wait')) : 'none';
-    var pulseBucket = card && card.isCenter ? Math.round((bass + beatPulse * 0.85) * 6) : 0;
     return [
       item.type || '', item.title || '', item.sub || '', item.tag || '',
       item.playlistId || '', item.podcastKey || '', item.queueIndex == null ? '' : item.queueIndex,
       item.cover || '', coverState, card && card.isCenter ? 1 : 0, card && card.selected ? 1 : 0,
-      card && card.dofBucket == null ? -1 : card.dofBucket, pulseBucket, shelfAccentHex(), shelfSettings().bgOpacity
+      shelfAccentHex(), shelfSettings().bgOpacity
     ].join('|');
   }
 
@@ -147,7 +146,7 @@ function makeShelfManager() {
 
     if (isNow) {
       ctx.strokeStyle = shelfAccentRgba(0.72);
-      ctx.lineWidth = 1.8 + Math.sin(uniforms.uTime.value * 3) * 0.28 + bass * 1.2;
+      ctx.lineWidth = 2.0;
     } else {
       ctx.strokeStyle = 'rgba(255,255,255,0.14)';
       ctx.lineWidth = 1.1;
@@ -169,15 +168,45 @@ function makeShelfManager() {
     var coverSize = H - pad * 2 - 8;
     var cx = pad + 6, cy = pad + 4;
     makeRoundRect(ctx, cx, cy, coverSize, coverSize, 26);
-    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fill();
+    var coverGrad = ctx.createLinearGradient(cx, cy, cx + coverSize, cy + coverSize);
+    coverGrad.addColorStop(0, 'rgba(255,255,255,0.14)');
+    coverGrad.addColorStop(1, 'rgba(32,32,40,0.56)');
+    ctx.fillStyle = coverGrad; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    var hasValidCoverImg = false;
     if (item.cover) {
       var rec = playlistCoverCache[item.cover];
       if (rec && rec.loaded && rec.img) {
+        hasValidCoverImg = true;
         ctx.save(); makeRoundRect(ctx, cx, cy, coverSize, coverSize, 26); ctx.clip();
         ctx.drawImage(rec.img, cx, cy, coverSize, coverSize); ctx.restore();
       } else if (!rec || (!rec.loading && !rec.failed)) {
         requestPlaylistCover(item.cover, function () { drawCard(card, item); });
       }
+    }
+    if (!hasValidCoverImg) {
+      // 优雅黑胶与音符占位，彻底消除黑色空框
+      ctx.save();
+      makeRoundRect(ctx, cx, cy, coverSize, coverSize, 26);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(cx + coverSize / 2, cy + coverSize / 2, coverSize * 0.38, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx + coverSize / 2, cy + coverSize / 2, coverSize * 0.24, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = shelfAccentRgba(0.85);
+      ctx.font = '700 ' + Math.round(coverSize * 0.28) + 'px "Cinzel Decorative", Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var symbol = item.type === 'queue' ? '♪' : 'MR';
+      ctx.fillText(symbol, cx + coverSize / 2, cy + coverSize / 2);
+      ctx.restore();
     }
 
     // 文本区
@@ -194,12 +223,12 @@ function makeShelfManager() {
     ctx.fillStyle = 'rgba(255,255,255,0.52)';
     wrapText(ctx, item.sub || '', tx, pad + 156, W - tx - pad - 14, 24, 2);
 
-    // 律动进度条
+    // 律动底线
     ctx.strokeStyle = isNow ? shelfAccentRgba(0.90) : 'rgba(255,255,255,0.30)';
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 3.2;
     ctx.beginPath();
     ctx.moveTo(tx, H - pad - 22);
-    ctx.lineTo(tx + Math.min(260, 80 + bass * 320), H - pad - 22);
+    ctx.lineTo(tx + 180, H - pad - 22);
     ctx.stroke();
 
     if (card.isCenter) {
@@ -427,12 +456,7 @@ function makeShelfManager() {
     var shelfLook = shelfSettings();
     var summon = shelfSummonSettings();
     var nextDof = Math.max(0, Math.min(1, (absD - 0.45) / 3.2));
-    var nextDofBucket = Math.round(nextDof * 5);
-    if (card.dofBucket !== nextDofBucket) {
-      card.dofBucket = nextDofBucket;
-      card.dofBlur = nextDof;
-      drawCard(card, card.item);
-    }
+    card.dofBlur = nextDof;
 
     if (modeIs === 'side') {
       // 右侧 3D 架: 恢复更靠近、更斜切的打开姿态，让卡片有真正的前后层次。
@@ -494,11 +518,11 @@ function makeShelfManager() {
       var disabledByDetail = detailOpenSide;
       var opacity = absD < 0.5 ? 1.0 : Math.max(0.22, 1.0 - absD * 0.30);
       if (disabledByDetail) {
-        opacity *= card.index === openCardIdx ? 0.16 : 0.08;
-        card.mesh.material.color.setScalar(card.index === openCardIdx ? 0.42 : 0.25);
+        opacity *= card.index === openCardIdx ? 0.42 : 0.22;
+        card.mesh.material.color.setScalar(card.index === openCardIdx ? 0.78 : 0.58);
       } else {
         if (passiveAlways) opacity *= 0.92 + lift * 0.08;
-        card.mesh.material.color.setScalar(passiveAlways ? (0.96 + lift * 0.04) : 1);
+        card.mesh.material.color.setScalar(passiveAlways ? (0.96 + lift * 0.04) : Math.max(0.72, 1.0 - nextDof * 0.24));
       }
       // v8: 自动隐藏 — shelf 不在 focus 区时整体淡化
       card.mesh.material.opacity = Math.min(1, opacity * (shelfVisibility != null ? shelfVisibility : 1) * reveal * (1 - paneEase * 0.24) + pulse * 0.10 * reveal + breathPulse * 0.035) * shelfLook.opacity;
@@ -523,10 +547,10 @@ function makeShelfManager() {
       var disabledStage = contentList && contentList.isOpen();
       var opS = absD < 0.5 ? 1.0 : Math.max(0.18, 1.0 - absD * 0.32);
       if (disabledStage) {
-        opS *= card.index === openCardIdx ? 0.16 : 0.08;
-        card.mesh.material.color.setScalar(card.index === openCardIdx ? 0.42 : 0.25);
+        opS *= card.index === openCardIdx ? 0.42 : 0.22;
+        card.mesh.material.color.setScalar(card.index === openCardIdx ? 0.78 : 0.58);
       } else {
-        card.mesh.material.color.setScalar(1);
+        card.mesh.material.color.setScalar(Math.max(0.72, 1.0 - nextDof * 0.24));
       }
       card.mesh.material.opacity = Math.min(1, opS * (shelfVisibility != null ? shelfVisibility : 1) * (1 - paneEaseS * 0.24) + pulse * 0.10) * shelfLook.opacity;
       setCardCenter(card, absD < 0.5);

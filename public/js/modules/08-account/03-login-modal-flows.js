@@ -20,7 +20,7 @@ function isLoginRefreshCurrent(provider, seq) {
 }
 
 function normalizeLoginProviderKey(provider) {
-  return provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : 'netease'));
+  return provider === 'qq' ? 'qq' : (provider === 'ytmusic' ? 'ytmusic' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : 'netease')));
 }
 function loginProviderSupportsCookieMode(provider) {
   provider = normalizeLoginProviderKey(provider);
@@ -30,13 +30,19 @@ function loginProviderOfficialModeText(provider) {
   provider = normalizeLoginProviderKey(provider);
   if (provider === 'spotify') return { title: 'OAuth', sub: '弹出 Spotify 授权窗口' };
   if (provider === 'qishui') return { title: '扫码', sub: '使用抖音 App 官方授权' };
+  if (provider === 'ytmusic') return { title: '官方', sub: '弹出 YouTube 窗口 / 免登' };
   if (provider === 'kugou') return { title: '官网', sub: '弹出酷狗官方窗口' };
   return { title: '扫码', sub: '连接后弹出官方窗口' };
 }
+var ytmusicManualCookieOpen = false;
+var ytmusicWebLoginBusy = false;
+var ytmusicCookieBusy = false;
+
 function setManualCookieOpenForProvider(provider, open) {
   provider = normalizeLoginProviderKey(provider);
   if (provider === 'netease') neteaseManualCookieOpen = !!open;
   else if (provider === 'qq') qqManualCookieOpen = !!open;
+  else if (provider === 'ytmusic') ytmusicManualCookieOpen = !!open;
   else if (provider === 'kugou') kugouManualCookieOpen = !!open;
   else if (provider === 'qishui') qishuiManualCookieOpen = false;
 }
@@ -44,6 +50,7 @@ function isManualCookieOpenForProvider(provider) {
   provider = normalizeLoginProviderKey(provider);
   if (provider === 'netease') return !!neteaseManualCookieOpen;
   if (provider === 'qq') return !!qqManualCookieOpen;
+  if (provider === 'ytmusic') return !!ytmusicManualCookieOpen;
   if (provider === 'kugou') return !!kugouManualCookieOpen;
   if (provider === 'qishui') return false;
   return false;
@@ -881,10 +888,11 @@ function openQishuiPublicSearch() {
 function updateLoginProviderUi() {
   var meta = platformMeta(loginProvider);
   var isQQ = loginProvider === 'qq';
+  var isYtmusic = loginProvider === 'ytmusic';
   var isKugou = loginProvider === 'kugou';
   var isQishui = loginProvider === 'qishui';
   var isNetease = loginProvider === 'netease';
-  var isManualCookieProvider = isNetease || isQQ || isKugou;
+  var isManualCookieProvider = isNetease || isQQ || isYtmusic || isKugou;
   var title = document.getElementById('login-modal-title');
   var desc = document.getElementById('login-modal-desc');
   var shell = document.getElementById('qr-shell');
@@ -897,6 +905,7 @@ function updateLoginProviderUi() {
   var qqCard = document.getElementById('qq-web-login-card');
   var neteaseBtn = document.getElementById('login-provider-netease');
   var qqBtn = document.getElementById('login-provider-qq');
+  var ytmusicBtn = document.getElementById('login-provider-ytmusic');
   var kugouBtn = document.getElementById('login-provider-kugou');
   var qishuiBtn = document.getElementById('login-provider-qishui');
   var qqCookieSaveBtn = document.getElementById('qq-cookie-save-btn');
@@ -978,21 +987,24 @@ function updateLoginProviderUi() {
   if (spotifyBtn) spotifyBtn.classList.toggle('active', false);
   if (neteaseBtn) neteaseBtn.classList.toggle('active', loginProvider === 'netease');
   if (qqBtn) qqBtn.classList.toggle('active', isQQ);
+  if (ytmusicBtn) ytmusicBtn.classList.toggle('active', isYtmusic);
   if (kugouBtn) kugouBtn.classList.toggle('active', isKugou);
   if (qishuiBtn) qishuiBtn.classList.toggle('active', isQishui);
-  if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : ('扫码登录' + meta.label);
+  if (title) title.textContent = isQishui ? '扫码登录汽水音乐' : (isYtmusic ? '连接 YouTube Music' : ('扫码登录' + meta.label));
   if (desc) desc.innerHTML = isQQ
     ? '打开 <b>QQ 音乐官方网页登录窗口</b> 扫码，成功后会自动同步账号会话。'
+    : (isYtmusic
+      ? '打开 <b>YouTube Music 官方登录窗口</b> 登录 Google 账号，或手动导入 Cookie。免登亦可直接搜索播放！'
     : (isKugou
       ? '打开 <b>酷狗音乐官方网页登录窗口</b> 登录，成功后会自动同步账号会话。'
     : (isQishui
       ? '使用已登录账号的 <b>抖音 App</b> 扫描官方二维码并确认，登录后可同步我的喜欢、歌单并按账号权益播放。'
     : (canOpenNeteaseWeb
       ? '打开 <b>网易云音乐官方网页登录窗口</b> 扫码，避开接口二维码风控；成功后会自动同步账号会话。'
-      : '使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。')));
+      : '使用 <b>网易云音乐 App</b> 扫码，可同步歌单、红心与播客。'))));
   var manualCookieOpen = isManualCookieOpenForProvider(loginProvider);
   if (shell) {
-    var useWebPreview = isQQ || isKugou || (isNetease && (canOpenNeteaseWeb || manualCookieOpen));
+    var useWebPreview = isQQ || isYtmusic || isKugou || (isNetease && (canOpenNeteaseWeb || manualCookieOpen));
     shell.classList.toggle('web-login-preview', useWebPreview);
     shell.classList.toggle('qq-preview', isQQ);
     shell.classList.toggle('netease-preview', isNetease && canOpenNeteaseWeb);
@@ -1002,38 +1014,50 @@ function updateLoginProviderUi() {
     qqCookieToggle.classList.toggle('show', isManualCookieProvider);
     qqCookieToggle.textContent = manualCookieOpen ? '收起导入' : 'Cookie 导入';
   }
-  if (qqCookieInput) qqCookieInput.placeholder = isKugou ? 'KuGoo=...; token=...; userid=...; kg_mid=...' : (isNetease ? 'MUSIC_U=...; __csrf=...' : 'uin=...; qqmusic_key=...; qm_keyst=...');
-  if (qqCookieNote) qqCookieNote.textContent = isKugou ? '从 kugou.com 的登录会话导入。' : (isNetease ? '从 music.163.com 的登录会话导入。' : '从 y.qq.com 的登录会话导入。');
+  if (qqCookieInput) qqCookieInput.placeholder = isYtmusic
+    ? 'SAPISID=...; __Secure-3PAPISID=...; SID=...; HSID=...'
+    : (isKugou
+      ? 'KuGoo=...; token=...; userid=...; kg_mid=...'
+      : (isNetease ? 'MUSIC_U=...; __csrf=...' : 'uin=...; qqmusic_key=...; qm_keyst=...'));
+  if (qqCookieNote) qqCookieNote.textContent = isYtmusic
+    ? '从 music.youtube.com 的登录会话导入。'
+    : (isKugou
+      ? '从 kugou.com 的登录会话导入。'
+      : (isNetease ? '从 music.163.com 的登录会话导入。' : '从 y.qq.com 的登录会话导入。'));
   if (qqCookieSaveBtn) qqCookieSaveBtn.textContent = '保存 Cookie';
   if (qqCard) {
     qqCard.style.display = '';
-    qqCard.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy));
+    qqCard.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isYtmusic ? !!ytmusicWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy)));
     var cardMark = qqCard.querySelector('b');
     var cardLabel = qqCard.querySelector('span');
-    if (cardMark) cardMark.textContent = isQQ ? 'QQ' : (isKugou ? 'KG' : (isQishui ? 'QS' : 'NE'));
+    if (cardMark) cardMark.textContent = isQQ ? 'QQ' : (isYtmusic ? 'YT' : (isKugou ? 'KG' : (isQishui ? 'QS' : 'NE')));
     if (cardLabel) cardLabel.textContent = isQQ
       ? (qqWebLoginBusy ? '等待扫码确认' : (qqLoginStatus.loggedIn ? '重新打开官方窗口同步会员' : '打开官方扫码窗口'))
-      : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '打开官方登录窗口') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口')));
+      : (isYtmusic
+        ? (ytmusicWebLoginBusy ? '等待登录确认' : (ytmusicLoginStatus.loggedIn ? '打开官方窗口切换账号' : '打开官方登录窗口'))
+      : (isKugou ? (kugouWebLoginBusy ? '等待登录确认' : '打开官方登录窗口') : (isQishui ? (qishuiOAuthBusy ? '正在生成二维码' : '扫码登录汽水') : (neteaseWebLoginBusy ? '等待扫码确认' : '打开官方登录窗口'))));
   }
   if (st) {
     st.className = isManualCookieProvider ? 'preview' : '';
     st.textContent = isQQ
       ? qqLoginStatusText(qqLoginStatus)
+      : (isYtmusic
+        ? (ytmusicLoginStatus.loggedIn ? ('已连接 YouTube Music · ' + (ytmusicLoginStatus.nickname || 'Google 账号')) : '免登可直接搜索播放；点击可打开官方窗口登录')
       : (isKugou
         ? (kugouLoginStatus.loggedIn ? ('已保存酷狗音乐会话 · ' + (kugouLoginStatus.nickname || '')) : '点击“登录”打开酷狗音乐官方窗口')
         : (isQishui
           ? qishuiLoginStatusText()
-        : (canOpenNeteaseWeb ? '点击“网页登录”打开网易云官方窗口' : '正在生成二维码…')));
+        : (canOpenNeteaseWeb ? '点击“网页登录”打开网易云官方窗口' : '正在生成二维码…'))));
   }
   if (refreshBtn) {
-    refreshBtn.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy));
+    refreshBtn.disabled = isQishui ? (qishuiBusy || !canUseQishuiQrLogin) : (isQQ ? !!qqWebLoginBusy : (isYtmusic ? !!ytmusicWebLoginBusy : (isKugou ? !!kugouWebLoginBusy : !!neteaseWebLoginBusy)));
     var qqNeedsAuthRefresh = isQQ && qqLoginStatus.loggedIn && (
       qqLoginStatus.authorizationIncomplete ||
       qqLoginStatus.playbackKeyReady === false
     );
     var qqNeedsMembershipSync = isQQ && typeof qqMembershipNeedsSync === 'function' && qqMembershipNeedsSync(qqLoginStatus);
-    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码')));
-    refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isKugou ? openKugouWebLogin : (canOpenNeteaseWeb ? openNeteaseWebLogin : refreshQr)));
+    refreshBtn.textContent = isQishui ? (qishuiOAuthBusy ? '生成中…' : '刷新二维码') : (isQQ ? (qqWebLoginBusy ? '等待扫码…' : (qqNeedsAuthRefresh ? '重新授权' : (qqNeedsMembershipSync ? '同步会员' : (qqLoginStatus.loggedIn ? '刷新状态' : '扫码登录')))) : (isYtmusic ? (ytmusicWebLoginBusy ? '等待登录…' : '官方登录') : (isKugou ? (kugouWebLoginBusy ? '等待登录…' : '登录') : (canOpenNeteaseWeb ? (neteaseWebLoginBusy ? '等待扫码…' : '网页登录') : '刷新二维码'))));
+    refreshBtn.onclick = isQishui ? openQishuiWebLogin : (isQQ ? (qqNeedsAuthRefresh ? openQQWebLogin : (qqLoginStatus.loggedIn ? refreshQr : openQQWebLogin)) : (isYtmusic ? openYtmusicWebLogin : (isKugou ? openKugouWebLogin : (canOpenNeteaseWeb ? openNeteaseWebLogin : refreshQr))));
   }
   updateLoginNodeGraphUi();
 }
@@ -1105,6 +1129,19 @@ async function refreshQr() {
     if (qqStatus) {
       qqStatus.textContent = qqLoginStatusText(info);
       qqStatus.className = 'preview';
+    }
+    return;
+  }
+  if (loginProvider === 'ytmusic') {
+    qrKey = null;
+    var ytStatus = document.getElementById('qr-status');
+    var ytImg = document.getElementById('qr-img');
+    if (ytImg) ytImg.src = '';
+    var ytInfo = await refreshYtmusicLoginStatus();
+    if (!isLoginRefreshCurrent(refreshProvider, refreshSeq)) return;
+    if (ytStatus) {
+      ytStatus.textContent = ytInfo && ytInfo.loggedIn ? ('已连接 YouTube Music · ' + (ytInfo.nickname || 'Google 账号')) : '免登可直接搜索播放；点击“官方登录”打开窗口同步歌单';
+      ytStatus.className = 'preview';
     }
     return;
   }
@@ -1255,6 +1292,7 @@ function toggleQQCookiePanel() {
 }
 function openProviderWebLogin() {
   if (loginProvider === 'qq') return openQQWebLogin();
+  if (loginProvider === 'ytmusic') return openYtmusicWebLogin();
   if (loginProvider === 'kugou') return openKugouWebLogin();
   if (loginProvider === 'qishui') return openQishuiWebLogin();
   if (loginProvider === 'spotify') return openSpotifyWebLogin();
@@ -1418,6 +1456,54 @@ async function openQQWebLogin() {
     }
   }
 }
+async function openYtmusicWebLogin() {
+  if (ytmusicWebLoginBusy) return;
+  var statusEl = document.getElementById('qr-status');
+  var api = window.desktopWindow;
+  if (!api || !api.isDesktop || typeof api.openYtmusicLogin !== 'function') {
+    ytmusicManualCookieOpen = true;
+    updateLoginProviderUi();
+    if (statusEl) { statusEl.textContent = '当前环境不支持官方窗口，可手动粘贴 Cookie 或免登直接搜索。'; statusEl.className = 'fail'; }
+    return;
+  }
+
+  ytmusicWebLoginBusy = true;
+  updateLoginProviderUi();
+  if (statusEl) { statusEl.textContent = '已打开 YouTube Music 官方窗口，请完成登录…'; statusEl.className = 'preview'; }
+  try {
+    var result = await api.openYtmusicLogin({ forceReauth: true });
+    if (!result || !result.ok || !result.cookie) {
+      throw new Error((result && (result.message || result.error)) || 'YouTube Music 登录未完成');
+    }
+    if (statusEl) { statusEl.textContent = '正在同步 YouTube Music 会话…'; statusEl.className = 'preview'; }
+    var info = await apiJson('/api/ytmusic/cookie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookie: result.cookie })
+    });
+    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || 'YouTube 会话不可用');
+    ytmusicLoginStatus = normalizeYtmusicLoginStatus(info);
+    activeAccountProvider = 'ytmusic';
+    ytmusicManualCookieOpen = false;
+    renderUserBtn();
+    refreshUserPlaylists(true);
+    if (statusEl) { statusEl.textContent = 'YouTube Music 会话已保存'; statusEl.className = 'scan'; }
+    setTimeout(function () {
+      closeLoginModal();
+      showToast('YouTube Music 已连接: ' + (info.nickname || 'Google 账号'));
+    }, 420);
+  } catch (e) {
+    ytmusicWebLoginBusy = false;
+    updateLoginProviderUi();
+    if (statusEl) { statusEl.textContent = e && e.message ? e.message : 'YouTube Music 登录失败'; statusEl.className = 'fail'; }
+  } finally {
+    if (ytmusicWebLoginBusy) {
+      ytmusicWebLoginBusy = false;
+      updateLoginProviderUi();
+    }
+  }
+}
+
 async function openKugouWebLogin() {
   if (kugouWebLoginBusy) return;
   var statusEl = document.getElementById('qr-status');
@@ -1475,50 +1561,56 @@ async function submitQQCookieLogin() {
   if (loginProvider === 'spotify') return submitSpotifyConfigLogin();
   if (loginProvider === 'qishui') return openQishuiWebLogin();
   if (loginProvider === 'netease') return submitNeteaseCookieLogin();
+  var isYt = loginProvider === 'ytmusic';
   var isKugou = loginProvider === 'kugou';
-  if (isKugou ? kugouCookieBusy : qqCookieBusy) return;
+  if (isYt ? ytmusicCookieBusy : (isKugou ? kugouCookieBusy : qqCookieBusy)) return;
   var input = document.getElementById('qq-cookie-input');
   var statusEl = document.getElementById('qr-status');
   var saveBtn = document.getElementById('qq-cookie-save-btn');
   var cookie = input ? input.value.trim() : '';
   if (!cookie) {
-    if (statusEl) { statusEl.textContent = isKugou ? '先粘贴酷狗音乐 cookie' : '先粘贴 QQ 音乐 cookie'; statusEl.className = 'fail'; }
+    if (statusEl) { statusEl.textContent = isYt ? '先粘贴 YouTube Music cookie' : (isKugou ? '先粘贴酷狗音乐 cookie' : '先粘贴 QQ 音乐 cookie'); statusEl.className = 'fail'; }
     return;
   }
-  if (isKugou) kugouCookieBusy = true;
+  if (isYt) ytmusicCookieBusy = true;
+  else if (isKugou) kugouCookieBusy = true;
   else qqCookieBusy = true;
   if (saveBtn) saveBtn.classList.add('busy');
-  if (statusEl) { statusEl.textContent = isKugou ? '正在保存酷狗会话…' : '正在保存 QQ 会话…'; statusEl.className = 'preview'; }
+  if (statusEl) { statusEl.textContent = isYt ? '正在保存 YouTube 会话…' : (isKugou ? '正在保存酷狗会话…' : '正在保存 QQ 会话…'); statusEl.className = 'preview'; }
   try {
-    var info = await apiJson(isKugou ? '/api/kugou/login/cookie' : '/api/qq/login/cookie', {
+    var endpoint = isYt ? '/api/ytmusic/cookie' : (isKugou ? '/api/kugou/login/cookie' : '/api/qq/login/cookie');
+    var info = await apiJson(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookie: cookie })
     });
-    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || (isKugou ? '酷狗会话不可用' : 'QQ 会话不可用'));
-    if (isKugou) kugouLoginStatus = normalizeKugouLoginStatus(info);
+    if (!info || !info.loggedIn) throw new Error((info && (info.message || info.error)) || (isYt ? 'YouTube 会话不可用' : (isKugou ? '酷狗会话不可用' : 'QQ 会话不可用')));
+    if (isYt) ytmusicLoginStatus = normalizeYtmusicLoginStatus(info);
+    else if (isKugou) kugouLoginStatus = normalizeKugouLoginStatus(info);
     else {
       qqLoginStatus = normalizeQQLoginStatus(info);
       auditProviderVipState('qq', qqLoginStatus);
     }
-    activeAccountProvider = isKugou ? 'kugou' : 'qq';
+    activeAccountProvider = isYt ? 'ytmusic' : (isKugou ? 'kugou' : 'qq');
     if (input) input.value = '';
     renderUserBtn();
     refreshUserPlaylists(true);
-    var manualPlaybackReady = !!info.playbackKeyReady;
-    if (statusEl) { statusEl.textContent = manualPlaybackReady ? (isKugou ? '酷狗音乐会话已保存' : qqLoginStatusText(qqLoginStatus)) : (isKugou ? '酷狗账号已同步，播放授权不完整，部分歌曲可能需要重登' : 'QQ 账号已同步，播放授权不完整，部分歌曲会自动换源'); statusEl.className = 'scan'; }
+    var manualPlaybackReady = true;
+    if (statusEl) { statusEl.textContent = isYt ? 'YouTube Music 会话已保存' : (isKugou ? '酷狗音乐会话已保存' : qqLoginStatusText(qqLoginStatus)); statusEl.className = 'scan'; }
     setManualCookieOpenForProvider(activeAccountProvider, false);
     offerLoginCookieExport(activeAccountProvider, info);
     setTimeout(function () {
       closeLoginModal();
-      showToast((manualPlaybackReady ? (isKugou ? '酷狗音乐已登录: ' : 'QQ 音乐已登录: ') : (isKugou ? '酷狗账号已同步: ' : 'QQ 账号已同步: ')) + (info.nickname || info.userId || ''));
+      showToast((isYt ? 'YouTube Music 已登录: ' : (isKugou ? '酷狗音乐已登录: ' : 'QQ 音乐已登录: ')) + (info.nickname || info.userId || ''));
     }, 420);
   } catch (e) {
-    if (statusEl) { statusEl.textContent = e && e.message ? e.message : (isKugou ? '酷狗会话保存失败' : 'QQ 会话保存失败'); statusEl.className = 'fail'; }
+    if (statusEl) { statusEl.textContent = e && e.message ? e.message : (isYt ? 'YouTube 会话保存失败' : (isKugou ? '酷狗会话保存失败' : 'QQ 会话保存失败')); statusEl.className = 'fail'; }
   } finally {
-    if (isKugou) kugouCookieBusy = false;
+    if (isYt) ytmusicCookieBusy = false;
+    else if (isKugou) kugouCookieBusy = false;
     else qqCookieBusy = false;
     if (saveBtn) saveBtn.classList.remove('busy');
+    updateLoginProviderUi();
   }
 }
 

@@ -227,9 +227,13 @@ function prepareLocalBeatAnalysis(song, audioUrl) {
       applyLocalBeatMap(song, mode, map, true);
       return;
     }
-    openLocalBeatModal(song, audioUrl);
+    if (opts && opts.manual) {
+      openLocalBeatModal(song, audioUrl);
+    } else {
+      startLocalBeatAnalysisSilent(song, audioUrl, preferred);
+    }
   })().catch(function () {
-    if (diskToken === trackSwitchToken && currentLocalSong && currentLocalSong.localKey === song.localKey) openLocalBeatModal(song, audioUrl);
+    if (opts && opts.manual && diskToken === trackSwitchToken && currentLocalSong && currentLocalSong.localKey === song.localKey) openLocalBeatModal(song, audioUrl);
   });
 }
 function openLocalBeatModal(song, audioUrl) {
@@ -360,5 +364,69 @@ async function startLocalBeatAnalysis(mode) {
     updateLocalBeatModal();
     showToast('本地节奏分析失败');
   }
+}
+
+async function startLocalBeatAnalysisSilent(song, audioUrl, mode) {
+  mode = mode || 'mr';
+  if (!song || !song.localKey || !audioUrl) return;
+  var cached = getLocalBeatEntry(song.localKey, mode);
+  if (cached) {
+    applyLocalBeatMap(song, mode, cached, true);
+    return;
+  }
+  try {
+    var map = null;
+    if (mode === 'dj') {
+      var djToken = ++djBeatMapToken;
+      map = await analyzePodcastDjBeats(audioUrl, djToken, audio && isFinite(audio.duration) ? audio.duration : 0);
+      if (!map) return;
+    } else {
+      var mrToken = ++beatMapToken;
+      map = await analyzeAudioBeats(audioUrl, audio && isFinite(audio.duration) ? audio.duration : 0, mrToken, { background: true, song: song });
+      if (!map) return;
+    }
+    storeLocalBeatEntry(song.localKey, mode, map, song);
+    if (currentLocalSong && currentLocalSong.localKey === song.localKey) {
+      applyLocalBeatMap(song, mode, map, false);
+    }
+  } catch (e) {
+    console.warn('silent local beat analysis failed:', e);
+  }
+}
+
+var localBatchBeatBusy = false;
+async function startBatchLocalBeatAnalysis(mode) {
+  if (localBatchBeatBusy) {
+    showToast('本地曲库后台分析正在进行中...');
+    return;
+  }
+  mode = mode || 'mr';
+  var list = (typeof localSongs === 'object' && Array.isArray(localSongs)) ? localSongs : [];
+  if (!list.length) {
+    showToast('本地曲库暂无歌曲');
+    return;
+  }
+  var unanalyzed = list.filter(function (s) {
+    return s && s.localKey && !getLocalBeatEntry(s.localKey, mode);
+  });
+  if (!unanalyzed.length) {
+    showToast('全部 ' + list.length + ' 首本地音乐已完成 ' + (mode === 'dj' ? 'DJ' : 'MR') + ' 节奏分析！');
+    return;
+  }
+  localBatchBeatBusy = true;
+  showToast('开始后台批量分析 ' + unanalyzed.length + ' 首本地歌曲 (' + (mode === 'dj' ? 'DJ' : 'MR') + ' 模式)...');
+  var doneCount = 0;
+  for (var i = 0; i < unanalyzed.length; i++) {
+    var s = unanalyzed[i];
+    var url = s.localUrl || (s.localPath ? ('/api/local/file?path=' + encodeURIComponent(s.localPath)) : '');
+    if (url) {
+      try {
+        await startLocalBeatAnalysisSilent(s, url, mode);
+        doneCount++;
+      } catch (e) { }
+    }
+  }
+  localBatchBeatBusy = false;
+  showToast('本地曲库分析完成！成功生成 ' + doneCount + ' 首 ' + (mode === 'dj' ? 'DJ' : 'MR') + ' 律动图');
 }
 

@@ -39,6 +39,8 @@ function applyMineradioCacheSettings(snapshot) {
   setMineradioCacheStorageText('cache-storage-wallpaper-size', formatMineradioCacheBytes(usage.wallpaperEngineBytes));
   setMineradioCacheStorageText('cache-storage-userdata-path', settings.userDataPath || '系统安全数据目录');
   setMineradioCacheStorageText('cache-storage-userdata-size', formatMineradioCacheBytes(usage.userDataBytes));
+  setMineradioCacheStorageText('user-cache-total-size', formatMineradioCacheBytes(usage.totalManagedBytes));
+  setMineradioCacheStorageText('user-cache-current-path', settings.rootPath);
   var restartButton = mineradioCacheStorageNode('cache-storage-restart');
   if (restartButton) restartButton.hidden = !settings.restartRequired;
   setMineradioCacheStorageText(
@@ -47,6 +49,15 @@ function applyMineradioCacheSettings(snapshot) {
       ? '歌词缓存已切换；封面、网络、音频分片、节奏分析与 WE 静音场景将在重启后改用新目录。'
       : '歌词缓存立即生效；封面、网络、音频分片、节奏分析与 WE 静音场景已使用此目录。'
   );
+}
+
+function openMineradioCacheFolder() {
+  if (!window.desktopWindow || typeof window.desktopWindow.openPath !== 'function') return;
+  var root = (mineradioCacheStorageNode('cache-storage-root') && mineradioCacheStorageNode('cache-storage-root').textContent) ||
+    (mineradioCacheStorageNode('user-cache-current-path') && mineradioCacheStorageNode('user-cache-current-path').textContent);
+  if (root && root !== '—' && root !== '桌面版启动后读取' && root !== '正在读取...') {
+    window.desktopWindow.openPath(root);
+  }
 }
 
 function refreshMineradioCacheSettings() {

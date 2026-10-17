@@ -110,6 +110,18 @@ const {
   handleQishuiLyric,
   handleQishuiSongUrl,
 } = require('./qishui-api');
+const {
+  getYtmusicStatus,
+  handleYtmusicStatus,
+  handleYtmusicCookie,
+  handleYtmusicLogout,
+  handleYtmusicSearch,
+  handleYtmusicSongUrl,
+  handleYtmusicStream,
+  handleYtmusicUserPlaylists,
+  handleYtmusicPlaylistTracks,
+  handleYtmusicLyric,
+} = require('./ytmusic-api');
 const qishuiQrLogin = require('./qishui-qr-login');
 const { clearSpotifyToken } = require('./spotify-api');
 const {
@@ -129,6 +141,8 @@ const LOGIN_EASTER_EGG_PROTECTED_ROUTES = new Set([
   '/api/login/qr/check',
   '/api/qq/login/cookie',
   '/api/kugou/login/cookie',
+  '/api/ytmusic/login/cookie',
+  '/api/ytmusic/cookie',
   '/api/qishui/login/qrcode',
   '/api/qishui/login/check',
 ]);
@@ -4478,7 +4492,7 @@ async function getPlaybackLoginInfo() {
 
 function normalizeListenReportProvider(value) {
   value = String(value || '').trim().toLowerCase();
-  if (value === 'qq' || value === 'kugou' || value === 'qishui' || value === 'spotify') return value;
+  if (value === 'qq' || value === 'kugou' || value === 'qishui' || value === 'spotify' || value === 'ytmusic') return value;
   return value === 'netease' || value === 'cloud' || value === 'song' ? 'netease' : '';
 }
 
@@ -4488,6 +4502,7 @@ function listenReportSongId(provider, song) {
   if (provider === 'kugou') return String(song.hash || song.mixSongId || song.providerSongId || song.id || '');
   if (provider === 'qishui') return String(song.providerSongId || song.trackId || song.id || '');
   if (provider === 'spotify') return String(song.spotifyId || song.providerSongId || song.id || '').replace(/^spotify:track:/i, '');
+  if (provider === 'ytmusic') return String(song.videoId || song.providerSongId || song.id || '').replace(/^yt_/i, '');
   return String(song.id || song.providerSongId || '');
 }
 
@@ -5029,6 +5044,19 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouRecommendations]', err);
       sendJSON(res, { provider: 'kugou', error: err.message, songs: [] }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/search') {
+    try {
+      const kw = url.searchParams.get('keywords') || '';
+      const limit = Math.max(1, Math.min(30, parseInt(url.searchParams.get('limit') || '15', 10) || 15));
+      const result = await handleYtmusicSearch(kw, limit);
+      sendJSON(res, { provider: 'ytmusic', songs: result.songs || [], total: (result.songs || []).length });
+    } catch (err) {
+      console.error('[YtmusicSearch]', err);
+      sendJSON(res, { provider: 'ytmusic', error: err.message, songs: [] }, 500);
     }
     return;
   }
@@ -5764,6 +5792,95 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       console.error('[KugouPlaylistAddSong]', err);
       sendJSON(res, { provider: 'kugou', success: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  // ---------- YouTube Music (YT) ----------
+  if (pn === '/api/ytmusic/status') {
+    try {
+      sendJSON(res, await handleYtmusicStatus());
+    } catch (err) {
+      console.error('[YtmusicStatus]', err);
+      sendJSON(res, { provider: 'ytmusic', loggedIn: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/login/cookie' || pn === '/api/ytmusic/cookie') {
+    try {
+      const body = await readRequestBody(req);
+      const raw = body.cookie || body.data || body.text || '';
+      const result = await handleYtmusicCookie(raw);
+      sendJSON(res, result);
+    } catch (err) {
+      console.error('[YtmusicCookie]', err);
+      sendJSON(res, { provider: 'ytmusic', loggedIn: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/logout') {
+    try {
+      sendJSON(res, await handleYtmusicLogout());
+    } catch (err) {
+      console.error('[YtmusicLogout]', err);
+      sendJSON(res, { provider: 'ytmusic', ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/song/url') {
+    try {
+      const id = url.searchParams.get('id') || url.searchParams.get('videoId') || '';
+      const info = await handleYtmusicSongUrl(id);
+      sendJSON(res, info);
+    } catch (err) {
+      console.error('[YtmusicSongUrl]', err);
+      sendJSON(res, { provider: 'ytmusic', url: '', error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/stream') {
+    try {
+      const id = url.searchParams.get('id') || url.searchParams.get('videoId') || '';
+      await handleYtmusicStream(req, res, id);
+    } catch (err) {
+      console.error('[YtmusicStream]', err);
+      if (!res.headersSent) sendJSON(res, { provider: 'ytmusic', error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/user/playlists') {
+    try {
+      sendJSON(res, await handleYtmusicUserPlaylists());
+    } catch (err) {
+      console.error('[YtmusicUserPlaylists]', err);
+      sendJSON(res, { provider: 'ytmusic', playlists: [], error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/playlist/tracks') {
+    try {
+      const id = url.searchParams.get('id') || '';
+      sendJSON(res, await handleYtmusicPlaylistTracks(id));
+    } catch (err) {
+      console.error('[YtmusicPlaylistTracks]', err);
+      sendJSON(res, { provider: 'ytmusic', tracks: [], error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/ytmusic/lyric') {
+    try {
+      const id = url.searchParams.get('id') || '';
+      sendJSON(res, await handleYtmusicLyric(id));
+    } catch (err) {
+      console.error('[YtmusicLyric]', err);
+      sendJSON(res, { provider: 'ytmusic', lyric: '', error: err.message }, 500);
     }
     return;
   }

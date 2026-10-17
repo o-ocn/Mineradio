@@ -614,6 +614,9 @@ async function resolveAlbumGaplessPlaybackData(song) {
   if (playbackProvider === 'qq') {
     return apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 15000 });
   }
+  if (playbackProvider === 'ytmusic') {
+    return apiJson('/api/ytmusic/song/url?id=' + encodeURIComponent(song.id || song.videoId || ''), { timeoutMs: 15000 });
+  }
   if (playbackProvider === 'kugou') {
     return apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
       '&albumId=' + encodeURIComponent(song.albumId || song.album_id || '') +
@@ -1157,6 +1160,7 @@ async function playQueueAt(idx, opts) {
       markPlayPhase('source-url');
       var playbackProvider = normalizePlaybackProvider(songProviderKey(song));
       var isQQPlayback = playbackProvider === 'qq';
+      var isYtmusicPlayback = playbackProvider === 'ytmusic';
       var isKugouPlayback = playbackProvider === 'kugou';
       var isQishuiPlayback = playbackProvider === 'qishui';
       var isSpotifyPlayback = playbackProvider === 'spotify';
@@ -1174,6 +1178,8 @@ async function playQueueAt(idx, opts) {
         data = opts.preResolvedPlaybackData;
       } else if (isQQPlayback) {
         data = await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qqPlaybackEvidenceQuery(song) + qualityParam, { timeoutMs: 15000 });
+      } else if (isYtmusicPlayback) {
+        data = await apiJson('/api/ytmusic/song/url?id=' + encodeURIComponent(song.id || song.videoId || ''), { timeoutMs: 15000 });
       } else if (isKugouPlayback) {
         data = await apiJson('/api/kugou/song/url?hash=' + encodeURIComponent(song.hash || song.fileHash || song.audioHash || song.id || '') +
           '&albumId=' + encodeURIComponent(song.albumId || song.album_id || '') +

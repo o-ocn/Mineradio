@@ -1,5 +1,5 @@
 function loggedProviderCount() {
-  return ['netease', 'qq', 'kugou', 'qishui'].filter(function (key) { return hasPlatformLogin(key); }).length;
+  return ['netease', 'qq', 'ytmusic', 'qishui'].filter(function (key) { return hasPlatformLogin(key); }).length;
 }
 function updateUserModalUi() {
   activeAccountProvider = firstLoggedProvider();
@@ -13,6 +13,7 @@ function updateUserModalUi() {
   var logoutBtn = document.getElementById('account-logout-btn');
   var addNetease = document.getElementById('account-add-netease');
   var addQQ = document.getElementById('account-add-qq');
+  var addYtmusic = document.getElementById('account-add-ytmusic');
   var addKugou = document.getElementById('account-add-kugou');
   var addQishui = document.getElementById('account-add-qishui');
   if (chip) {
@@ -27,6 +28,11 @@ function updateUserModalUi() {
       var vipLabel = neVipLevel === 'svip' ? '网易云 SVIP' : (neVipLevel === 'vip' ? '网易云 VIP' : '普通用户');
       vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  /  ' + vipLabel;
       vipEl.style.color = hasProviderVip('netease', st) ? 'rgba(244,210,138,0.86)' : 'rgba(255,255,255,0.5)';
+    } else if (activeAccountProvider === 'ytmusic') {
+      var ytVipLevel = providerVipLevel('ytmusic', st);
+      var ytVipLabel = ytVipLevel === 'svip' ? 'YouTube Premium' : (ytVipLevel === 'vip' ? 'YouTube Premium' : 'YouTube Music 已连接');
+      vipEl.textContent = 'UID: ' + ((st && st.userId) || '-') + '  /  ' + ytVipLabel;
+      vipEl.style.color = hasProviderVip('ytmusic', st) ? 'rgba(255,80,80,0.86)' : 'rgba(255,160,160,0.78)';
     } else if (activeAccountProvider === 'kugou') {
       var kgVipLevel = providerVipLevel('kugou', st);
       var kgVipLabel = kgVipLevel === 'svip' ? '酷狗 SVIP 会员' : (kgVipLevel === 'vip' ? '酷狗 VIP 会员' : '酷狗音乐会话');
@@ -49,22 +55,24 @@ function updateUserModalUi() {
       vipEl.style.color = qqVipPending ? 'rgba(255,232,174,0.86)' : (hasProviderVip('qq', st) ? 'rgba(0,245,212,0.82)' : 'rgba(0,245,212,0.58)');
     }
   }
-  ['netease', 'qq', 'kugou', 'qishui', 'both'].forEach(function (key) {
+  ['netease', 'qq', 'ytmusic', 'kugou', 'qishui', 'both'].forEach(function (key) {
     var btn = document.getElementById('user-provider-' + key);
     if (btn) btn.classList.toggle('active', key === 'both' ? dualAccountMode : (!dualAccountMode && activeAccountProvider === key));
   });
   if (addNetease) addNetease.style.display = hasPlatformLogin('netease') ? 'none' : '';
   if (addQQ) addQQ.textContent = hasPlatformLogin('qq') ? '查看 QQ 音乐' : '补登 QQ 音乐';
-  if (addKugou) addKugou.textContent = hasPlatformLogin('kugou') ? '查看酷狗音乐' : '补登酷狗音乐';
+  if (addYtmusic) addYtmusic.textContent = hasPlatformLogin('ytmusic') ? '查看 YouTube Music' : '登录 YouTube Music';
+  if (addKugou) addKugou.style.display = 'none';
   if (addQishui) addQishui.textContent = hasPlatformLogin('qishui') ? '重新登录汽水' : '登录汽水音乐';
   if (logoutBtn) logoutBtn.textContent =
     activeAccountProvider === 'qq' ? '退出 QQ 音乐' :
+    (activeAccountProvider === 'ytmusic' ? '退出 YouTube Music' :
     (activeAccountProvider === 'kugou' ? '退出酷狗音乐' :
     (activeAccountProvider === 'qishui' ? '清除汽水登录态' :
-    (activeAccountProvider === 'spotify' ? '退出 Spotify' : '退出网易云')));
+    (activeAccountProvider === 'spotify' ? '退出 Spotify' : '退出网易云'))));
   if (hint) hint.textContent = dualAccountMode
     ? '右上角已切换为多平台并排展示。'
-    : '可切换右上角展示的平台；“我两个都要”会并排显示当前已登录的平台。';
+    : '可切换右上角展示的平台；“我都要”会并排显示当前已登录的平台。';
 }
 function showUserModal() {
   if (!hasAnyPlatformLogin()) return showLoginModal();
@@ -78,7 +86,7 @@ function showUserModal() {
 }
 function closeUserModal() { closeGsapModal(document.getElementById('user-modal')); }
 function setActiveAccountProvider(provider) {
-  provider = provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease')));
+  provider = provider === 'qq' ? 'qq' : (provider === 'ytmusic' ? 'ytmusic' : (provider === 'kugou' ? 'ytmusic' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease'))));
   if (!hasPlatformLogin(provider)) {
     openProviderLogin(provider);
     return;
@@ -102,7 +110,7 @@ function requestDualLoginMode() {
   enableDualAccountView();
 }
 function openProviderLogin(provider) {
-  provider = provider === 'qq' ? 'qq' : (provider === 'kugou' ? 'kugou' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease')));
+  provider = provider === 'qq' ? 'qq' : (provider === 'ytmusic' ? 'ytmusic' : (provider === 'kugou' ? 'ytmusic' : (provider === 'qishui' ? 'qishui' : (provider === 'spotify' ? 'spotify' : 'netease'))));
   closeUserModal();
   loginProvider = provider;
   showLoginModal({ provider: provider });
@@ -243,6 +251,25 @@ async function logoutActiveAccount() {
     if (hasAnyPlatformLogin()) updateUserModalUi();
     else closeUserModal();
     showToast('已清除汽水音乐授权');
+    return;
+  }
+  if (activeAccountProvider === 'ytmusic') {
+    try { await apiJson('/api/ytmusic/logout'); } catch (e) { }
+    try {
+      if (window.desktopWindow && typeof window.desktopWindow.clearYtmusicLogin === 'function') {
+        await window.desktopWindow.clearYtmusicLogin();
+      }
+    } catch (e) { }
+    ytmusicLoginStatus = { provider: 'ytmusic', loggedIn: false, preview: false, nickname: 'YouTube Music', userId: '', avatar: '', vipType: 0, vipLevel: 'none', isVip: false, isSvip: false };
+    ytmusicPlaylists = [];
+    userPlaylists = userPlaylists.filter(function (pl) { return pl.provider !== 'ytmusic'; });
+    playlistCatalogRevision += 1;
+    dualAccountMode = false;
+    activeAccountProvider = firstLoggedProvider();
+    renderUserBtn();
+    if (hasAnyPlatformLogin()) updateUserModalUi();
+    else closeUserModal();
+    showToast('已退出 YouTube Music');
     return;
   }
   if (activeAccountProvider === 'kugou') {

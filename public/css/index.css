@@ -2123,6 +2123,12 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
   background: rgba(86, 224, 255, .075)
 }
 
+.tag-source.ytmusic {
+  color: #ff9e99;
+  border-color: rgba(255, 68, 56, .30);
+  background: rgba(255, 68, 56, .075)
+}
+
 .tag-source.qishui {
   color: #d7ffe5;
   border-color: rgba(69, 214, 143, .30);
@@ -2141,6 +2147,10 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
 
 .search-result.kugou-source:hover {
   background: rgba(86, 224, 255, .052)
+}
+
+.search-result.ytmusic-source:hover {
+  background: rgba(255, 68, 56, .052)
 }
 
 .search-result.qishui-source:hover {
@@ -4425,6 +4435,11 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home {
 .account-source-dot.kugou {
   background: #56e0ff;
   color: #56e0ff
+}
+
+.account-source-dot.ytmusic {
+  background: #ff4438;
+  color: #ff4438
 }
 
 .account-source-dot.qishui {
@@ -9224,6 +9239,12 @@ body.login-guide-active #login-guide-canvas {
   color: #c9f5ff
 }
 
+.login-platform-tabs button.ytmusic.active,
+.user-platform-tabs button.ytmusic.active {
+  background: rgba(255, 68, 56, .16);
+  color: #ff9e99
+}
+
 .login-platform-tabs button.qishui.active,
 .user-platform-tabs button.qishui.active {
   background: rgba(69, 214, 143, .14);
@@ -9239,6 +9260,7 @@ body.login-guide-active #login-guide-canvas {
 .login-node-providers.login-platform-tabs button.netease.active,
 .login-node-providers.login-platform-tabs button.qq.active,
 .login-node-providers.login-platform-tabs button.kugou.active,
+.login-node-providers.login-platform-tabs button.ytmusic.active,
 .login-node-providers.login-platform-tabs button.qishui.active,
 .login-node-providers.login-platform-tabs button.spotify.active {
   background: linear-gradient(135deg, rgba(255, 255, 255, .064), rgba(var(--fc-accent-rgb), .026));
@@ -9909,6 +9931,68 @@ body.login-guide-active #login-guide-canvas {
   border-color: rgba(86, 224, 255, .26);
   color: #c9f5ff;
   background: rgba(86, 224, 255, .08)
+}
+
+.account-provider-chip.ytmusic {
+  border-color: rgba(255, 68, 56, .26);
+  color: #ff9e99;
+  background: rgba(255, 68, 56, .08)
+}
+
+.user-cache-settings-card {
+  margin: 16px 0 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  text-align: left;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.user-cache-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.user-cache-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.user-cache-size-tag {
+  font-size: 11px;
+  color: #ff9e99;
+  background: rgba(255, 68, 56, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.user-cache-path-display {
+  display: block;
+  font-family: Consolas, monospace;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(0, 0, 0, 0.28);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 10px;
+  user-select: all;
+}
+.user-cache-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.user-cache-actions .modal-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  height: 28px;
+  line-height: 18px;
 }
 
 .account-provider-chip.qishui {

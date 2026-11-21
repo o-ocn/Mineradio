@@ -8,11 +8,11 @@
 ## 一、项目基础信息
 - **项目名称**：Mineradio 音乐播放客户端
 - **项目物理路径 / 仓库地址**：`E:\Document\Gemini\Mineradio` / `https://github.com/o-ocn/Mineradio`
-- **当前所处阶段**：阶段完成 / 稳定运行 (活跃 v1.0.0-beta)
+- **当前所处阶段**：阶段完成 / 稳定运行（`v2.2.0` 个人源码分支；Last.fm 公开凭据待复核与确认处置）
 - **同步申请类型**：
   - [ ] 新项目接入 (New Ingestion)
-  - [ ] 状态增量更新 (State Update)
-  - [x] 里程碑/阶段完成 (Milestone Completed)
+  - [x] 状态增量更新 (State Update)
+  - [ ] 里程碑/阶段完成 (Milestone Completed)
   - [ ] 转入长期维护 (Long-Term Maintenance)
 
 ---
@@ -21,9 +21,9 @@
 - **PROJECT_INDEX.md 拟更新项**：
   - 更新独立仓库登记项：`repo:Mineradio`
   - 类型：类型 A (Public 仓)
-  - 维护状态：阶段完成 / 稳定运行 (活跃 v1.0.0-beta)
+  - 维护状态：阶段完成 / 稳定运行（`v2.2.0` 个人源码分支）
   - 详细状态唯一事实源：`https://github.com/o-ocn/Mineradio/blob/main/PROJECT_STATE.md`（本地: `E:\Document\Gemini\Mineradio`）
-  - 核心说明：原生轻量架构，零打包编译，双击即启；底栏精简居中、音源/音质移入歌曲详情、动画抗卡顿；借鉴Folia强化本地曲库（文件夹封面优先与目录级哈希缓存去重、外挂多格式歌词与翻译自动关联）、演职员制作名单智能剥离、实时歌词广播API；Last.fm代理穿透与防重复弹窗授权、全局弹窗右上角关闭按钮视觉归一（SVG矢量圆按钮）；自由选定本地缓存位置；移除酷狗并原生接入YouTube Music，全面采用Electron内置独立窗口登录免密记住，修复后端writeHead致命错误并重构暗黑红透玻璃拟态UI，消灭文字折行与按钮截断；106模块自检及单元测试全绿
+  - 核心说明：原生轻量架构，零打包编译，双击即启；当前无 GitHub Release 安装包，实际通过 `main` 源码运行/构建（`README.md` 与 `SECURITY.md` 已于 2026-11-21 校准）；底栏精简居中、音源/音质移入歌曲详情、本地曲库/外挂多格式歌词/实时歌词 API、YouTube Music 内置窗口登录与 3D 歌单架优化；`desktop/lastfm-service.js` 内置凭据已列入待复核/待确认安全项；详见独立仓库正式状态。
 - **Hub 内项目状态指针 / 档案更新**：
   - 本项目属于类型 A 独立仓库，根据单一事实源铁律，完整状态由本仓库自身维护，Hub 仅保留地图指针，不建立重复状态副本。
 

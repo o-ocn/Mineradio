@@ -4,11 +4,11 @@
 
 当前只维护最新公开版本。
 
-## Installer Safety Notice
+## Installer & Source Acquisition Notice
 
-`v1.0.10` 及更早旧安装包不再建议继续安装或传播。请将旧 `.exe` 安装包视为不可信历史产物并隔离保留；需要安装 Mineradio 时，请使用 `v1.1.0` 或更新版本的 GitHub Release 安装包。
+`v1.0.10` 及更早旧安装包不再建议继续安装或传播。请将旧 `.exe` 安装包视为不可信历史产物并隔离保留。
 
-`v1.1.0` 不作为 `v1.0.10` 的软件内本地更新包发布。旧版本用户请手动下载新版安装包，卸载旧版本后进行纯净安装。
+当前 `o-ocn/Mineradio` 公开仓库**未发布任何 GitHub Release 预编译安装包**（`v2.2.0` 标签与 `release/2.2.0` 分支均为上游历史发布快照，`main` 已在其基础上继续迭代并关闭软件内自动更新）。当前唯一可验证的获取方式是从本仓库 `main` 分支拉取源码，按 [`README.md`](./README.md) 本地运行（`npm start`）或自行执行 `npm run build:win` 构建安装包。
 
 ## Reporting a Vulnerability
 

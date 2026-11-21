@@ -16,8 +16,8 @@
 
 ## 二、当前状态（做到哪里 / 运行事实）
 
-- **当前阶段**：阶段完成 / 稳定运行 (Stage Completed / Production Stable)
-- **当前版本与分支**：`v1.0.0-beta` / 分支 `main` (Commit `2cdb3aa` 已全量同步至 GitHub)
+- **当前阶段**：阶段完成 / 稳定运行（`package.json` 版本 `2.2.0` 个人二次开发分支，2026-11-21 校准发布说明与安全待办）
+- **当前版本与分支**：`v2.2.0`（个人定制迭代）/ 分支 `main`（`v2.2.0` 标签 `9402566` 与 `release/2.2.0` 分支 `4c76138` 均为上游 `XxHuberrr` 同树历史发布快照；本仓库 `o-ocn/Mineradio` 当前 **0 个 GitHub Release**，唯一可验证获取方式为从 `main` 拉取源码本地运行或自行构建；`README.md` 与 `SECURITY.md` 已于 2026-11-21 同步修正）
 - **核心组件运行事实**：
   - 后端服务：轻量 Node.js 本地 Express 服务器，监听端口 `3000`（通过 `node server.js` 启动）；
   - 前端架构：纯原生 HTML5 / CSS3 / ES6+ JavaScript，无 Webpack/Vite 编译打包，修改即时生效；
@@ -181,6 +181,7 @@
 ## 五、未完成事项（Bug / 风险 / 待确认）
 
 ### 1. 已知缺陷与技术债 (Known Issues)
+- [ ] **【高风险安全待处置】公开源码中内置 Last.fm 签名凭据**：提交 `a003bb3`（2026-10-17）在公开源码 `desktop/lastfm-service.js`（第 10、11、75 行）与 `public/js/modules/08-account/06-lastfm-service.js`（第 396 行）中写入了硬编码 Last.fm API Key/Secret，且本机未跟踪 `data/lastfm-config.json` 当前正使用该组默认值。2026-11-21 已完成只读来源核查（未回显原值、未用暴露值发请求）并拟定移除默认硬编码、改由本机未跟踪配置或环境变量读取的最小方案；按高风险凭据处置规范，待独立复核与所有者明确确认后再执行撤销/轮换与代码移除。
 - [ ] **逐字歌词动态高亮专项**：当前歌词支持单行/三行滚动，但部分带细粒度时间戳的逐字歌词（KRC/逐字 LRC）渲染平滑度有待专项增强。
 
 ### 2. 待确认与排查事项 (Open Questions)

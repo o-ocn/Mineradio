@@ -6,9 +6,13 @@ const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
 
-// 默认内建 API Key（兼容 Last.fm 官方开放 API 与桌面授权签名）
-const DEFAULT_API_KEY = '7bfc3993e87eb839bd1567bd2622dd56';
-const DEFAULT_API_SECRET = 'ff82c3593eb7f898c328cfb07bb696ec';
+function readEnvValue(names) {
+  for (const name of names) {
+    const val = String(process.env[name] || '').trim();
+    if (val) return val;
+  }
+  return '';
+}
 
 function createTunnelAgent(proxyUrl) {
   if (!proxyUrl) return null;
@@ -66,21 +70,23 @@ class LastFmService {
     return this._proxyAgent || undefined;
   }
 
+  getEffectiveApiKey() {
+    return String(this.config.apiKey || '').trim() || readEnvValue(['MINERADIO_LASTFM_API_KEY', 'LASTFM_API_KEY']);
+  }
+
+  getEffectiveApiSecret() {
+    return String(this.config.apiSecret || '').trim() || readEnvValue(['MINERADIO_LASTFM_API_SECRET', 'LASTFM_API_SECRET']);
+  }
+
   readConfig() {
     try {
       if (fs.existsSync(this.configFile)) {
         const raw = JSON.parse(fs.readFileSync(this.configFile, 'utf8'));
-        let apiKey = String(raw.apiKey || '').trim();
-        let apiSecret = String(raw.apiSecret || '').trim();
-        if (!apiKey || apiKey === 'b25b959554ed76058ac220b7b2e0a026' || !apiSecret || apiSecret === '425b7747e90890696b998cfb62e49752') {
-          apiKey = DEFAULT_API_KEY;
-          apiSecret = DEFAULT_API_SECRET;
-        }
         return {
           enabled: raw.enabled !== false,
           scrobbleEnabled: raw.scrobbleEnabled !== false,
-          apiKey,
-          apiSecret,
+          apiKey: String(raw.apiKey || '').trim(),
+          apiSecret: String(raw.apiSecret || '').trim(),
           username: String(raw.username || '').trim(),
           sessionKey: String(raw.sessionKey || '').trim(),
         };
@@ -89,15 +95,19 @@ class LastFmService {
     return {
       enabled: true,
       scrobbleEnabled: true,
-      apiKey: DEFAULT_API_KEY,
-      apiSecret: DEFAULT_API_SECRET,
+      apiKey: '',
+      apiSecret: '',
       username: '',
       sessionKey: '',
     };
   }
 
   saveConfig(nextConfig = {}) {
-    this.config = Object.assign({}, this.config, nextConfig);
+    const cleaned = {};
+    for (const [k, v] of Object.entries(nextConfig || {})) {
+      if (v !== undefined) cleaned[k] = typeof v === 'string' ? v.trim() : v;
+    }
+    this.config = Object.assign({}, this.config, cleaned);
     try {
       fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
       fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2), 'utf8');
@@ -108,12 +118,15 @@ class LastFmService {
   }
 
   getConfig() {
+    const apiKey = this.getEffectiveApiKey();
+    const apiSecret = this.getEffectiveApiSecret();
     return {
       enabled: this.config.enabled,
       scrobbleEnabled: this.config.scrobbleEnabled,
-      hasKey: !!this.config.apiKey,
-      apiKey: this.config.apiKey,
-      apiSecret: this.config.apiSecret,
+      hasKey: !!apiKey,
+      hasSecret: !!apiSecret,
+      apiKey,
+      apiSecret,
       username: this.config.username,
       sessionKey: this.config.sessionKey,
       hasSession: !!this.config.sessionKey,
@@ -126,13 +139,18 @@ class LastFmService {
     for (const k of keys) {
       str += k + params[k];
     }
-    str += (secret || this.config.apiSecret);
+    str += (secret || this.getEffectiveApiSecret());
     return crypto.createHash('md5').update(str, 'utf8').digest('hex');
   }
 
   request(method, params = {}, isPost = false, allowRetry = true) {
     return new Promise((resolve) => {
-      const apiKey = this.config.apiKey || DEFAULT_API_KEY;
+      const apiKey = this.getEffectiveApiKey();
+      if (!apiKey) {
+        resolve({ ok: false, error: 'LASTFM_API_KEY_NOT_CONFIGURED' });
+        return;
+      }
+
       const allParams = Object.assign({
         api_key: apiKey,
         format: 'json',
@@ -143,7 +161,12 @@ class LastFmService {
       }
 
       if (isPost || allParams.sk) {
-        allParams.api_sig = this.createSignature(allParams, this.config.apiSecret || DEFAULT_API_SECRET);
+        const apiSecret = this.getEffectiveApiSecret();
+        if (!apiSecret) {
+          resolve({ ok: false, error: 'LASTFM_API_SECRET_NOT_CONFIGURED' });
+          return;
+        }
+        allParams.api_sig = this.createSignature(allParams, apiSecret);
       }
 
       const postData = Object.keys(allParams)
@@ -152,7 +175,7 @@ class LastFmService {
 
       let url = 'https://ws.audioscrobbler.com/2.0/';
       const headers = {
-        'User-Agent': 'Mineradio/1.0.0 (https://github.com/o-ocn/Mineradio)',
+        'User-Agent': 'Mineradio/2.2.0 (https://github.com/o-ocn/Mineradio)',
       };
 
       if (!isPost) {
@@ -214,7 +237,8 @@ class LastFmService {
   }
 
   getAuthUrl(token = '') {
-    const apiKey = this.config.apiKey || DEFAULT_API_KEY;
+    const apiKey = this.getEffectiveApiKey();
+    if (!apiKey) return '';
     if (token) {
       return `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
     }
@@ -222,13 +246,17 @@ class LastFmService {
   }
 
   async getRequestToken() {
+    const apiKey = this.getEffectiveApiKey();
+    const apiSecret = this.getEffectiveApiSecret();
+    if (!apiKey || !apiSecret) {
+      return { ok: false, error: 'LASTFM_CREDENTIALS_NOT_CONFIGURED', authUrl: '' };
+    }
     const res = await this.request('auth.getToken', {
       method: 'auth.getToken',
     }, true);
     if (res.ok && res.data && res.data.token) {
       const token = res.data.token;
       this.pendingToken = token;
-      const apiKey = this.config.apiKey || DEFAULT_API_KEY;
       const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}`;
       return { ok: true, token, authUrl };
     }

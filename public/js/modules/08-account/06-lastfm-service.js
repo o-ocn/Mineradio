@@ -393,25 +393,39 @@ async function startLastFmAuthFlow() {
 
   if (authBtn) authBtn.innerHTML = '<span>⏳ 正在唤起授权页面…</span>';
 
-  var fallbackAuthUrl = 'https://www.last.fm/api/auth/?api_key=7bfc3993e87eb839bd1567bd2622dd56';
   var token = '';
+  var authRes = null;
 
   try {
     if (api && typeof api.lastFmStartAuth === 'function') {
-      var startRes = await api.lastFmStartAuth();
-      if (startRes && startRes.ok) {
-        token = startRes.token || '';
+      authRes = await api.lastFmStartAuth();
+      if (authRes && authRes.ok) {
+        token = authRes.token || '';
         lastFmCurrentAuthToken = token;
       }
     } else if (api && typeof api.lastFmOpenAuth === 'function') {
-      var openRes = await api.lastFmOpenAuth();
-      if (openRes && openRes.ok) {
-        token = openRes.token || '';
+      authRes = await api.lastFmOpenAuth();
+      if (authRes && authRes.ok) {
+        token = authRes.token || '';
         lastFmCurrentAuthToken = token;
       }
     } else {
-      window.open(fallbackAuthUrl, '_blank');
-      if (typeof showToast === 'function') showToast('已在浏览器打开 Last.fm 授权页');
+      authRes = { ok: false, error: 'DESKTOP_API_UNAVAILABLE' };
+    }
+
+    if (!authRes || !authRes.ok) {
+      var errCode = (authRes && authRes.error) ? String(authRes.error) : 'AUTH_START_FAILED';
+      var isMissingCreds = errCode.indexOf('NOT_CONFIGURED') !== -1;
+      lastFmAuthStage = 'idle';
+      updateLastFmModalUi();
+      if (isMissingCreds) {
+        var fold = document.querySelector('#lastfm-settings-modal .lastfm-advanced-fold');
+        if (fold) fold.open = true;
+      }
+      if (typeof showToast === 'function') {
+        showToast(isMissingCreds ? '请先在下方高级设置中填写你自己的 Last.fm API Key 与 Shared Secret' : ('唤起 Last.fm 授权失败: ' + errCode));
+      }
+      return;
     }
 
     lastFmAuthStage = 'verifying';
@@ -480,7 +494,7 @@ function createLastFmSettingsModal() {
         '<div class="lastfm-fold-content">' +
           '<div class="lastfm-form-row">' +
             '<label>API Key</label>' +
-            '<input id="lastfm-apikey-input" type="text" placeholder="留空使用默认 Key 或填自定义 API Key" autocomplete="off" spellcheck="false">' +
+            '<input id="lastfm-apikey-input" type="text" placeholder="填写你自己的 Last.fm API Key（仅保存在本机）" autocomplete="off" spellcheck="false">' +
           '</div>' +
           '<div class="lastfm-form-row">' +
             '<label>Shared Secret</label>' +

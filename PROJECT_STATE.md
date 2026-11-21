@@ -124,6 +124,11 @@
   - **修复抽屉宽度挤压与文字截断缺陷**：默认收起 Cookie 输入区保持界面整洁大方；在展开 Cookie 面板时将抽屉拓宽至 300px 并自适应隐藏卡片，彻底消灭输入框被压扁、说明文字单字折行与按钮文字被截断为“保存 Co”的界面缺陷；
   - **弹窗右上角关闭按钮统一升级**：全面换掉原版简陋文字 `×`，升级为带 30px 圆形微边框与极简矢量 SVG 图标的 `.login-panel-close`，与全局其他模态框 100% 视觉对齐。
 
+- [x] **Last.fm 公开源码硬编码凭据清理（2026-11-21）**：
+  - 经所有者确认原提交 `a003bb3` 写入的默认 Last.fm API Key/Secret 非本人账号凭据并授权移除；
+  - 彻底移除 `desktop/lastfm-service.js`（原 `DEFAULT_API_KEY`、`DEFAULT_API_SECRET` 及旧占位迁移字面量）与 `public/js/modules/08-account/06-lastfm-service.js`（原硬编码 `fallbackAuthUrl`）中的全部硬编码凭据，改为仅从本机未跟踪 `userData/lastfm-config.json` 或环境变量 `MINERADIO_LASTFM_API_KEY` / `MINERADIO_LASTFM_API_SECRET` 读取；缺失时明确返回 `LASTFM_*_NOT_CONFIGURED` 错误并展开设置页引导填写，不返回假成功；
+  - 同步清空本机未跟踪 `data/lastfm-config.json` 中残留的非本人默认 Key/Secret；全仓 285 个跟踪文件扫描 0 命中。
+
 ### 实测验证记录
 - **自动化测试命令**：
   ```bash
@@ -181,8 +186,8 @@
 ## 五、未完成事项（Bug / 风险 / 待确认）
 
 ### 1. 已知缺陷与技术债 (Known Issues)
-- [ ] **【高风险安全待处置】公开源码中内置 Last.fm 签名凭据**：提交 `a003bb3`（2026-10-17）在公开源码 `desktop/lastfm-service.js`（第 10、11、75 行）与 `public/js/modules/08-account/06-lastfm-service.js`（第 396 行）中写入了硬编码 Last.fm API Key/Secret，且本机未跟踪 `data/lastfm-config.json` 当前正使用该组默认值。2026-11-21 已完成只读来源核查（未回显原值、未用暴露值发请求）并拟定移除默认硬编码、改由本机未跟踪配置或环境变量读取的最小方案；按高风险凭据处置规范，待独立复核与所有者明确确认后再执行撤销/轮换与代码移除。
 - [ ] **逐字歌词动态高亮专项**：当前歌词支持单行/三行滚动，但部分带细粒度时间戳的逐字歌词（KRC/逐字 LRC）渲染平滑度有待专项增强。
+- [ ] **Last.fm 历史提交说明**：2026-11-21 已从当前 `main` 移除非本人内置凭据（未改写 Git 历史 `a003bb3`）；后续如需启用 Last.fm 打卡，在客户端设置页填入个人申请的 API Key 与 Shared Secret 即可（仅保存在本机未跟踪配置）。
 
 ### 2. 待确认与排查事项 (Open Questions)
 - [ ] **多端 M3U8 歌单镜像联动**：后续在曲库增删歌曲时，需常态化保持与 OneDrive / Google Drive 双端的无缝同步联动。
